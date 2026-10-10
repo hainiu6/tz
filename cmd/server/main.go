@@ -192,6 +192,15 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 		respondErr(w, s.store.DeleteNode(parts[1]))
 	case len(parts) == 3 && parts[0] == "nodes" && parts[2] == "upgrade" && r.Method == http.MethodPost:
 		respondErr(w, s.store.RequestUpgrade(parts[1]))
+	case len(parts) == 3 && parts[0] == "nodes" && parts[2] == "reset-traffic" && r.Method == http.MethodPost:
+		err := s.store.ResetNodeTraffic(parts[1])
+		if errors.Is(err, os.ErrNotExist) {
+			jsonError(w, "节点不存在", 404)
+		} else if err != nil {
+			jsonError(w, "清空流量失败", 500)
+		} else {
+			writeJSON(w, map[string]bool{"ok": true})
+		}
 	case path == "nodes/upgrade-all" && r.Method == http.MethodPost:
 		count, err := s.store.RequestUpgradeAll()
 		if err != nil {

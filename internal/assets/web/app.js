@@ -8,6 +8,7 @@ const defaultColumns = [
   { id: "uploadSpeed", label: "上传速度", width: 115 }, { id: "downloadSpeed", label: "下载速度", width: 115 },
   { id: "todayUpload", label: "今日上传", width: 100 }, { id: "todayDownload", label: "今日下载", width: 100 },
   { id: "yesterdayUpload", label: "昨日上传", width: 100 }, { id: "yesterdayDownload", label: "昨日下载", width: 100 },
+  { id: "dayBeforeYesterdayUpload", label: "前天上传", width: 100 }, { id: "dayBeforeYesterdayDownload", label: "前天下载", width: 100 },
   { id: "totalUpload", label: "总上传", width: 100 }, { id: "totalDownload", label: "总下载", width: 100 },
   { id: "uptime", label: "运行时间", width: 85 }, { id: "cpu", label: "CPU", width: 90 },
   { id: "memory", label: "内存", width: 90 }, { id: "disk", label: "存储", width: 90 },
@@ -27,10 +28,9 @@ function loadColumns() {
   defaultColumns.forEach((column) => {
     if (seen.has(column.id)) return;
     const value = { ...column, visible: true }; seen.add(column.id);
-    if (column.id === "note") {
-      const serverIndex = columns.findIndex((item) => item.id === "server");
-      if (serverIndex >= 0) { columns.splice(serverIndex + 1, 0, value); return; }
-    }
+    const after = { note: "server", dayBeforeYesterdayUpload: "yesterdayDownload", dayBeforeYesterdayDownload: "dayBeforeYesterdayUpload" }[column.id];
+    const anchorIndex = columns.findIndex((item) => item.id === after);
+    if (anchorIndex >= 0) { columns.splice(anchorIndex + 1, 0, value); return; }
     columns.push(value);
   });
   if (!columns.some((column) => column.visible)) columns.find((column) => column.id === "server").visible = true;
@@ -40,6 +40,7 @@ function loadColumns() {
 const state = {
   groups: [], nodes: [], group: "", query: "", status: "", sortKey: "", sortDirection: "desc", theme: initialTheme,
   columns: loadColumns(),
+  actionMenuNode: "",
   token: localStorage.getItem("tz-admin-token") || "",
 };
 
@@ -194,6 +195,7 @@ function renderGroups() {
 }
 
 function renderNodes() {
+  const tableScrollLeft = $(".table-wrap").scrollLeft;
   const filtered = state.nodes.filter((node) => (!state.group || groupIDs(node).includes(state.group)) && (!state.query || `${node.name} ${node.ip} ${node.note || ""}`.toLowerCase().includes(state.query)) && (!state.status || (state.status === "online") === online(node)));
   const nodes = state.sortKey ? filtered.map((node, index) => ({ node, index })).sort((left, right) => {
     const speedSort = state.sortKey === "uploadSpeed" || state.sortKey === "downloadSpeed";
@@ -227,21 +229,59 @@ function renderNodes() {
       <td class="traffic-cell" data-column="todayDownload" data-label="今日下载">${bytes(node.todayDownload || 0)}</td>
       <td class="traffic-cell" data-column="yesterdayUpload" data-label="昨日上传">${bytes(node.yesterdayUpload || 0)}</td>
       <td class="traffic-cell" data-column="yesterdayDownload" data-label="昨日下载">${bytes(node.yesterdayDownload || 0)}</td>
+      <td class="traffic-cell" data-column="dayBeforeYesterdayUpload" data-label="前天上传">${bytes(node.dayBeforeYesterdayUpload || 0)}</td>
+      <td class="traffic-cell" data-column="dayBeforeYesterdayDownload" data-label="前天下载">${bytes(node.dayBeforeYesterdayDownload || 0)}</td>
       <td class="traffic-cell" data-column="totalUpload" data-label="总上传">${bytes(node.totalUpload)}</td>
       <td class="traffic-cell" data-column="totalDownload" data-label="总下载">${bytes(node.totalDownload)}</td>
       <td class="uptime-cell" data-column="uptime" data-label="运行时间">${uptime(node.uptime)}</td>
       <td class="metric-cell" data-column="cpu" data-label="CPU"><div class="metric"><span class="value">${isOnline ? `${node.cpu.toFixed(1)}%` : "—"}</span><progress class="bar" max="100" value="${isOnline ? Math.min(100, node.cpu) : 0}" aria-label="CPU 使用率"></progress></div></td>
       <td class="metric-cell" data-column="memory" data-label="内存"><div class="metric"><span class="value">${isOnline ? `${memoryPercent.toFixed(1)}%` : "—"}</span><progress class="bar" max="100" value="${isOnline ? memoryPercent : 0}" aria-label="内存使用率"></progress></div></td>
       <td class="metric-cell" data-column="disk" data-label="存储"><div class="metric"><span class="value">${isOnline ? `${diskPercent.toFixed(1)}%` : "—"}</span><progress class="bar" max="100" value="${isOnline ? diskPercent : 0}" aria-label="存储使用率"></progress></div></td>
-      <td class="actions-cell" data-column="actions"><div class="row-actions"><button class="action" title="升级探针" data-upgrade="${node.id}">↻<span class="action-label">升级</span></button><button class="action power-action" title="重启服务器" data-power-action="reboot" data-node="${node.id}" ${!isOnline || node.powerRequested ? "disabled" : ""}>重启</button><button class="action power-action danger" title="关机" data-power-action="shutdown" data-node="${node.id}" ${!isOnline || node.powerRequested ? "disabled" : ""}>关机</button><button class="action" title="编辑" data-edit="${node.id}">✎<span class="action-label">编辑</span></button><button class="action delete" title="删除" data-delete="${node.id}">×<span class="action-label">删除</span></button></div></td>
+      <td class="actions-cell" data-column="actions"><div class="row-actions"><button type="button" class="action" title="编辑" aria-label="编辑服务器" data-edit="${node.id}">✎</button><button type="button" class="action more-action" title="更多操作" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false" aria-controls="nodeActionMenu" data-node-menu="${node.id}">⋯</button></div></td>
     </tr>`;
   }).join("");
   applyColumnPreferences();
+  $(".table-wrap").scrollLeft = tableScrollLeft;
   document.querySelectorAll("[data-edit]").forEach((button) => { button.onclick = () => editNode(button.dataset.edit); });
-  document.querySelectorAll("[data-delete]").forEach((button) => { button.onclick = () => deleteNode(button.dataset.delete); });
-  document.querySelectorAll("[data-upgrade]").forEach((button) => { button.onclick = () => upgradeNode(button.dataset.upgrade); });
-  document.querySelectorAll("[data-power-action]").forEach((button) => { button.onclick = () => powerNode(button.dataset.node, button.dataset.powerAction); });
+  document.querySelectorAll("[data-node-menu]").forEach((button) => { button.onclick = () => {
+    if (state.actionMenuNode === button.dataset.nodeMenu) { closeNodeActionMenu(); return; }
+    closeNodeActionMenu(); state.actionMenuNode = button.dataset.nodeMenu; syncNodeActionMenu();
+    $("#nodeActionMenu button:not(:disabled)")?.focus();
+  }; });
+  syncNodeActionMenu();
   document.querySelectorAll("[data-copy-ip]").forEach((button) => { button.onclick = () => copyText(button.dataset.copyIp).then(() => toast(`已复制 ${button.dataset.copyIp}`)).catch((error) => toast(error.message)); });
+}
+
+function closeNodeActionMenu() {
+  state.actionMenuNode = "";
+  $("#nodeActionMenu").hidden = true;
+  document.querySelectorAll("[data-node-menu]").forEach((button) => button.setAttribute("aria-expanded", "false"));
+}
+
+function syncNodeActionMenu() {
+  if (!state.actionMenuNode) return;
+  const node = state.nodes.find((item) => item.id === state.actionMenuNode);
+  const anchor = [...document.querySelectorAll("[data-node-menu]")].find((button) => button.dataset.nodeMenu === state.actionMenuNode);
+  if (!node || !anchor || anchor.closest("td").hidden) { closeNodeActionMenu(); return; }
+  const menu = $("#nodeActionMenu"), rect = anchor.getBoundingClientRect();
+  const tableRect = anchor.closest(".table-wrap").getBoundingClientRect();
+  if (rect.right <= Math.max(0, tableRect.left) || rect.left >= Math.min(window.innerWidth, tableRect.right) || rect.bottom <= 0 || rect.top >= window.innerHeight) { closeNodeActionMenu(); return; }
+  menu.querySelectorAll("[data-menu-action]").forEach((button) => {
+    const action = button.dataset.menuAction;
+    button.disabled = action === "upgrade" ? !online(node) : (action === "reboot" || action === "shutdown") && (!online(node) || !!node.powerRequested);
+  });
+  menu.hidden = false; anchor.setAttribute("aria-expanded", "true");
+  const gap = 6;
+  const left = Math.max(8, Math.min(rect.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8));
+  const top = rect.bottom + gap + menu.offsetHeight <= window.innerHeight - 8 ? rect.bottom + gap : rect.top - gap - menu.offsetHeight;
+  menu.style.left = `${left}px`; menu.style.top = `${Math.max(8, top)}px`;
+}
+
+async function resetNodeTraffic(id) {
+  const node = state.nodes.find((item) => item.id === id); if (!node) return;
+  if (!confirm(`确定清空“${node.name}”的流量记录？\n今日、昨日、前天和累计上传/下载都将归零，无法撤销。下一次上报建立新基线，之后开始统计新增流量。`)) return;
+  try { await api(`nodes/${id}/reset-traffic`, { method: "POST" }); await load(); toast("流量记录已清空"); }
+  catch (error) { if (error.status !== 401) toast(error.message); }
 }
 
 function openEntityForm(kind, item = null) {
@@ -390,6 +430,36 @@ function registerWebMCP() {
 }
 
 document.querySelectorAll("[data-close-form]").forEach((button) => { button.onclick = () => $("#formDialog").close(); });
+$("#nodeActionMenu").onclick = (event) => {
+  const button = event.target.closest("[data-menu-action]"); if (!button || button.disabled) return;
+  const id = state.actionMenuNode, action = button.dataset.menuAction; closeNodeActionMenu();
+  if (action === "upgrade") upgradeNode(id);
+  else if (action === "reboot" || action === "shutdown") powerNode(id, action);
+  else if (action === "reset-traffic") resetNodeTraffic(id);
+  else if (action === "delete") deleteNode(id);
+};
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#nodeActionMenu, [data-node-menu]")) closeNodeActionMenu();
+});
+document.addEventListener("keydown", (event) => {
+  if (!state.actionMenuNode) return;
+  if (event.key === "Escape") {
+    const anchor = [...document.querySelectorAll("[data-node-menu]")].find((button) => button.dataset.nodeMenu === state.actionMenuNode);
+    closeNodeActionMenu(); anchor?.focus(); event.preventDefault(); return;
+  }
+  if (!event.target.closest("#nodeActionMenu")) return;
+  if (event.key === "Tab") {
+    const anchor = [...document.querySelectorAll("[data-node-menu]")].find((button) => button.dataset.nodeMenu === state.actionMenuNode);
+    closeNodeActionMenu(); anchor?.focus(); return;
+  }
+  if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+  const buttons = [...document.querySelectorAll("#nodeActionMenu button:not(:disabled)")];
+  const index = buttons.indexOf(document.activeElement);
+  const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+  buttons[next]?.focus(); event.preventDefault();
+});
+document.addEventListener("scroll", syncNodeActionMenu, true);
+window.addEventListener("resize", syncNodeActionMenu);
 $("#themeSelect").value = state.theme;
 $("#themeSelect").onchange = (event) => { state.theme = event.target.value === "light" ? "light" : "dark"; document.documentElement.dataset.theme = state.theme; localStorage.setItem("tz-theme", state.theme); };
 document.querySelectorAll("[data-status]").forEach((button) => { button.onclick = () => { state.status = state.status === button.dataset.status ? "" : button.dataset.status; renderNodes(); document.querySelectorAll("[data-status]").forEach((item) => { const selected = item.dataset.status === state.status; item.classList.toggle("active", selected); item.setAttribute("aria-pressed", String(selected)); }); }; });

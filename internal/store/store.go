@@ -51,6 +51,10 @@ type Node struct {
 	UploadBaseline             uint64    `json:"uploadBaseline"`
 	DownloadBaseline           uint64    `json:"downloadBaseline"`
 	BaselineReady              bool      `json:"baselineReady"`
+	TrafficResetAt             time.Time `json:"trafficResetAt,omitempty"`
+	TrafficResetPending        bool      `json:"trafficResetPending,omitempty"`
+	UploadSinceReset           uint64    `json:"uploadSinceReset,omitempty"`
+	DownloadSinceReset         uint64    `json:"downloadSinceReset,omitempty"`
 	Metrics
 }
 
@@ -171,6 +175,9 @@ func (s *Store) Snapshot() ([]Group, []Node) {
 	now := s.now()
 	for i := range nodes {
 		nodes[i].rollTrafficDay(now)
+		if !nodes[i].TrafficResetAt.IsZero() {
+			nodes[i].TotalUpload, nodes[i].TotalDownload = nodes[i].UploadSinceReset, nodes[i].DownloadSinceReset
+		}
 		nodes[i].AgentToken = ""
 		nodes[i].UpgradeRequested = false
 		if len(nodes[i].GroupIDs) > 0 {
@@ -383,6 +390,34 @@ func (n *Node) takeCommands(powerSupported bool, now time.Time) NodeCommands {
 
 var trafficLocation = time.FixedZone("Asia/Shanghai", 8*60*60)
 
+// ResetNodeTraffic clears panel statistics without changing the agent's raw
+// counters or online status. The next report establishes a fresh baseline,
+// including for offline nodes, so pre-reset traffic cannot be counted again.
+func (s *Store) ResetNodeTraffic(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.data.Nodes {
+		n := &s.data.Nodes[i]
+		if n.ID != id {
+			continue
+		}
+		previous := *n
+		n.TrafficResetAt = s.now().UTC()
+		n.TrafficResetPending = true
+		n.TrafficDate = n.TrafficResetAt.In(trafficLocation).Format("2006-01-02")
+		n.TodayUpload, n.TodayDownload = 0, 0
+		n.YesterdayUpload, n.YesterdayDownload = 0, 0
+		n.DayBeforeYesterdayUpload, n.DayBeforeYesterdayDownload = 0, 0
+		n.UploadSinceReset, n.DownloadSinceReset = 0, 0
+		if err := s.saveLocked(); err != nil {
+			*n = previous
+			return err
+		}
+		return nil
+	}
+	return os.ErrNotExist
+}
+
 // rollTrafficDay also runs on snapshot copies so offline nodes roll over.
 func (n *Node) rollTrafficDay(now time.Time) {
 	local := now.In(trafficLocation)
@@ -412,7 +447,7 @@ func (n *Node) applyReport(ip, version string, metrics Metrics, now time.Time) {
 	if !n.BaselineReady {
 		n.UploadBaseline, n.DownloadBaseline = n.TotalUpload, n.TotalDownload
 	}
-	reset := !initialized ||
+	reset := n.TrafficResetPending || !initialized ||
 		(metrics.BootID != "" && metrics.BootID != n.BootID) ||
 		(metrics.NetworkSet != "" && metrics.NetworkSet != n.NetworkSet)
 	// Older agents have no boot ID. Only an actual decrease in uptime is used,
@@ -432,6 +467,10 @@ func (n *Node) applyReport(ip, version string, metrics Metrics, now time.Time) {
 			return d
 		}
 		up, down := delta(metrics.TotalUpload, &n.UploadBaseline), delta(metrics.TotalDownload, &n.DownloadBaseline)
+		if !n.TrafficResetAt.IsZero() {
+			n.UploadSinceReset += up
+			n.DownloadSinceReset += down
+		}
 		local := now.In(trafficLocation)
 		midnight := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, trafficLocation)
 		yesterday := midnight.AddDate(0, 0, -1)
@@ -459,6 +498,7 @@ func (n *Node) applyReport(ip, version string, metrics Metrics, now time.Time) {
 		n.DayBeforeYesterdayDownload += portion(down, dayBeforeYesterday, yesterday)
 	}
 	n.BaselineReady = true
+	n.TrafficResetPending = false
 	// A failed uptime read must not destroy a valid legacy reboot baseline.
 	if metrics.Uptime == 0 && !reset {
 		metrics.Uptime = n.Uptime
