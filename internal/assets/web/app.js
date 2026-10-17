@@ -87,6 +87,18 @@ function uptime(value) {
   return days > 0 ? `${days}天 ${hours}小时` : `${hours}小时`;
 }
 
+function offlineDuration(lastSeen) {
+  const timestamp = Date.parse(lastSeen);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return "时间未知";
+  const seconds = Math.floor(Math.max(0, Date.now() - timestamp) / 1000);
+  const days = Math.floor(seconds / 86400), hours = Math.floor(seconds / 3600) % 24;
+  const minutes = Math.floor(seconds / 60) % 60;
+  if (days > 0) return `${days}天${hours}小时`;
+  if (hours > 0) return `${hours}小时${minutes}分钟`;
+  if (minutes > 0) return `${minutes}分钟${seconds % 60}秒`;
+  return `${seconds}秒`;
+}
+
 const percent = (used, total) => total ? Math.min(100, used / total * 100) : 0;
 const online = (node) => Date.now() - new Date(node.lastSeen).getTime() < 15000;
 const groupIDs = (node) => node.groupIds || (node.groupId ? [node.groupId] : []);
@@ -219,9 +231,12 @@ function renderNodes() {
   });
   $("#nodeRows").innerHTML = nodes.map((node) => {
     const isOnline = online(node), memoryPercent = percent(node.memoryUsed, node.memoryTotal), diskPercent = percent(node.diskUsed, node.diskTotal);
+    const status = isOnline ? "在线" : `离线 ${offlineDuration(node.lastSeen)}`;
+    const lastSeen = Date.parse(node.lastSeen);
+    const statusTitle = Number.isFinite(lastSeen) && lastSeen > 0 ? `最后上报：${new Date(lastSeen).toLocaleString("zh-CN", { hour12: false })}${isOnline ? "" : "；离线时长按最后上报时间估算"}` : "未收到有效上报";
     return `<tr class="${isOnline ? "" : "node-offline"}">
       <td class="sort-cell" data-column="sort" data-label="排序">${node.sort}</td>
-      <td class="server-cell" data-column="server"><div class="server-name"><i class="status-dot ${isOnline ? "" : "offline"}"></i><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small>${escapeHTML(node.ip || "等待首次上报")} · ${isOnline ? "在线" : "离线"}</small></button></div></td>
+      <td class="server-cell" data-column="server"><div class="server-name"><i class="status-dot ${isOnline ? "" : "offline"}"></i><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span><span class="server-status" title="${escapeHTML(statusTitle)}"> · ${status}</span></small></button></div></td>
       <td class="note-cell" data-column="note" data-label="备注"><span title="${escapeHTML(node.note || "")}">${escapeHTML(node.note || "—")}</span></td>
       <td class="speed up" data-column="uploadSpeed" data-label="上传速度">↑ ${isOnline ? speedHTML(node.uploadSpeed) : "—"}</td>
       <td class="speed down" data-column="downloadSpeed" data-label="下载速度">↓ ${isOnline ? speedHTML(node.downloadSpeed) : "—"}</td>
