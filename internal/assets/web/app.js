@@ -3,7 +3,7 @@ const savedTheme = localStorage.getItem("tz-theme");
 const initialTheme = savedTheme === "light" ? "light" : "dark";
 document.documentElement.dataset.theme = initialTheme;
 const defaultColumns = [
-  { id: "sort", label: "排序", width: 70 }, { id: "server", label: "服务器", width: 200 },
+  { id: "sort", label: "排序", width: 70 }, { id: "server", label: "服务器", width: 290 },
   { id: "note", label: "备注", width: 190 },
   { id: "uploadSpeed", label: "上传速度", width: 115 }, { id: "downloadSpeed", label: "下载速度", width: 115 },
   { id: "todayUpload", label: "今日上传", width: 100 }, { id: "todayDownload", label: "今日下载", width: 100 },
@@ -87,16 +87,14 @@ function uptime(value) {
   return days > 0 ? `${days}天 ${hours}小时` : `${hours}小时`;
 }
 
-function offlineDuration(lastSeen) {
+function reportTime(lastSeen) {
   const timestamp = Date.parse(lastSeen);
   if (!Number.isFinite(timestamp) || timestamp <= 0) return "时间未知";
-  const seconds = Math.floor(Math.max(0, Date.now() - timestamp) / 1000);
-  const days = Math.floor(seconds / 86400), hours = Math.floor(seconds / 3600) % 24;
-  const minutes = Math.floor(seconds / 60) % 60;
-  if (days > 0) return `${days}天${hours}小时`;
-  if (hours > 0) return `${hours}小时${minutes}分钟`;
-  if (minutes > 0) return `${minutes}分钟${seconds % 60}秒`;
-  return `${seconds}秒`;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(timestamp).map(({ type, value }) => [type, value]));
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
 const percent = (used, total) => total ? Math.min(100, used / total * 100) : 0;
@@ -231,9 +229,9 @@ function renderNodes() {
   });
   $("#nodeRows").innerHTML = nodes.map((node) => {
     const isOnline = online(node), memoryPercent = percent(node.memoryUsed, node.memoryTotal), diskPercent = percent(node.diskUsed, node.diskTotal);
-    const status = isOnline ? "在线" : `离线 ${offlineDuration(node.lastSeen)}`;
-    const lastSeen = Date.parse(node.lastSeen);
-    const statusTitle = Number.isFinite(lastSeen) && lastSeen > 0 ? `最后上报：${new Date(lastSeen).toLocaleString("zh-CN", { hour12: false })}${isOnline ? "" : "；离线时长按最后上报时间估算"}` : "未收到有效上报";
+    const lastSeen = reportTime(node.lastSeen);
+    const status = isOnline ? "在线" : `离线 ${lastSeen}`;
+    const statusTitle = lastSeen === "时间未知" ? "未收到有效上报" : `最后上报：${lastSeen}（北京时间）${isOnline ? "" : "；离线时间按最后上报记录显示"}`;
     return `<tr class="${isOnline ? "" : "node-offline"}">
       <td class="sort-cell" data-column="sort" data-label="排序">${node.sort}</td>
       <td class="server-cell" data-column="server"><div class="server-name"><i class="status-dot ${isOnline ? "" : "offline"}"></i><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span><span class="server-status" title="${escapeHTML(statusTitle)}"> · ${status}</span></small></button></div></td>
