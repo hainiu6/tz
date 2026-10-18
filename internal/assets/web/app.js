@@ -3,7 +3,7 @@ const savedTheme = localStorage.getItem("tz-theme");
 const initialTheme = savedTheme === "light" ? "light" : "dark";
 document.documentElement.dataset.theme = initialTheme;
 const defaultColumns = [
-  { id: "sort", label: "排序", width: 40 }, { id: "server", label: "服务器", width: 172 },
+  { id: "sort", label: "排序", width: 40 }, { id: "server", label: "服务器", width: 152 },
   { id: "expiresAt", label: "到期时间", width: 150 },
   { id: "note", label: "备注", width: 212 },
   { id: "uploadSpeed", label: "上传速度", width: 90 }, { id: "downloadSpeed", label: "下载速度", width: 90 },
