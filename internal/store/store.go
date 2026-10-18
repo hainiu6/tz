@@ -31,6 +31,7 @@ type Node struct {
 	ID                         string    `json:"id"`
 	Name                       string    `json:"name"`
 	Note                       string    `json:"note,omitempty"`
+	ExpiresAt                  string    `json:"expiresAt,omitempty"`
 	IP                         string    `json:"ip"`
 	GroupIDs                   []string  `json:"groupIds"`
 	GroupID                    string    `json:"groupId,omitempty"` // legacy API compatibility
@@ -206,15 +207,25 @@ func (s *Store) CreateNode(name, groupID string, order int) (Node, error) {
 	return n, s.saveLocked()
 }
 
-func (s *Store) UpdateNode(id, name, note string, groupIDs []string, order int) error {
+// Omitting expiresAt preserves the previous expiry for older API clients.
+// Passing an empty string explicitly clears it.
+func (s *Store) UpdateNode(id, name, note string, groupIDs []string, order int, expiresAt ...string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i := range s.data.Nodes {
 		if s.data.Nodes[i].ID == id {
+			previous := s.data.Nodes[i]
 			s.data.Nodes[i].Name, s.data.Nodes[i].Note = name, note
 			s.data.Nodes[i].GroupIDs, s.data.Nodes[i].Sort = unique(groupIDs), order
 			s.data.Nodes[i].GroupID = ""
-			return s.saveLocked()
+			if len(expiresAt) > 0 {
+				s.data.Nodes[i].ExpiresAt = expiresAt[0]
+			}
+			if err := s.saveLocked(); err != nil {
+				s.data.Nodes[i] = previous
+				return err
+			}
+			return nil
 		}
 	}
 	return os.ErrNotExist

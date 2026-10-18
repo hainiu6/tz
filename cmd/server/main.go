@@ -168,6 +168,7 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 			Name, Note, GroupID string
 			Sort                int
 			GroupIDs            *[]string `json:"groupIds"`
+			ExpiresAt           *string   `json:"expiresAt"`
 		}
 		if !decode(w, r, &in) {
 			return
@@ -181,13 +182,26 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "备注不能超过 500 个字符", http.StatusBadRequest)
 			return
 		}
+		var expiry []string
+		if in.ExpiresAt != nil {
+			value := strings.TrimSpace(*in.ExpiresAt)
+			if value != "" {
+				parsed, err := time.Parse(time.RFC3339, value)
+				if err != nil || parsed.Year() < 1 {
+					jsonError(w, "到期时间格式无效", http.StatusBadRequest)
+					return
+				}
+				value = parsed.UTC().Format(time.RFC3339)
+			}
+			expiry = []string{value}
+		}
 		groupIDs := []string{}
 		if in.GroupIDs != nil {
 			groupIDs = *in.GroupIDs
 		} else if in.GroupID != "" {
 			groupIDs = []string{in.GroupID}
 		}
-		respondErr(w, s.store.UpdateNode(parts[1], strings.TrimSpace(in.Name), note, groupIDs, in.Sort))
+		respondErr(w, s.store.UpdateNode(parts[1], strings.TrimSpace(in.Name), note, groupIDs, in.Sort, expiry...))
 	case len(parts) == 2 && parts[0] == "nodes" && r.Method == http.MethodDelete:
 		respondErr(w, s.store.DeleteNode(parts[1]))
 	case len(parts) == 3 && parts[0] == "nodes" && parts[2] == "upgrade" && r.Method == http.MethodPost:
