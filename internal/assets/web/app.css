@@ -142,3 +142,28 @@ html[data-theme="light"] .field textarea{background:#fff}
   .list-tools>.btn{flex:1;min-height:40px}
   .row-actions .power-action{width:auto;min-width:40px;padding:0 5px}
 }
+
+.shell{width:100%;max-width:none}
+.topbar{padding-left:10px;padding-right:10px}
+.overview{padding:16px 8px;gap:10px}
+.workspace{margin:0 8px 12px}
+.list-head{padding-left:10px;padding-right:10px}
+.table-wrap table{width:max-content}
+.table-wrap th,.table-wrap td,#nodeRows td{padding-left:6px;padding-right:6px}
+.table-wrap th:first-child,.table-wrap td:first-child{padding-left:8px}
+.server-cell .server-name{width:160px;min-width:160px;max-width:160px;gap:7px}
+.note-cell span{max-width:110px}
+.metric{min-width:50px}.bar{width:44px}
+.row-actions{justify-content:flex-start;gap:2px}
+.node-dates .expiry-time:empty{min-height:1.3em}
+@media(min-width:1101px){
+  .workspace{grid-template-columns:168px minmax(0,1fr)}
+  .groups{padding:16px 8px}
+  .groups .section-head{padding:0 4px}
+  .group-row .group{min-width:0}
+  .group-status{margin-left:2px;margin-right:2px}
+}
+@media(max-width:760px){
+  .overview{padding:10px 6px;gap:7px}
+  .workspace{margin:0 6px 10px}
+}
