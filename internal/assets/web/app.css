@@ -104,7 +104,9 @@ html[data-theme="light"] .field textarea{background:#fff}
 .server-meta .server-status{flex:none;white-space:nowrap}
 .expiry-cell{vertical-align:middle}
 .node-dates{display:flex;flex-direction:column;gap:3px;line-height:1.3}
-.node-dates .expiry-time{font-size:12px}
+.node-dates .expiry-time{display:inline-flex;align-items:baseline;gap:6px;font-size:12px}
+.node-dates .expiry-remaining{font-size:11px;color:var(--muted)}
+.table-wrap #nodeRows .expiry-cell .expiry-time.expiring,.table-wrap #nodeRows .expiry-cell .expiry-time.expiring *{color:var(--danger)!important}
 .node-dates .offline-time{font-size:10px;color:var(--muted)}
 .row-actions .action{width:28px;height:28px}.more-action{font-size:21px;line-height:1}
 .row-actions .action:focus-visible{outline:2px solid var(--lime);outline-offset:1px}
