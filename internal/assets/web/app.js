@@ -5,7 +5,7 @@ document.documentElement.dataset.theme = initialTheme;
 const defaultColumns = [
   { id: "sort", label: "排序", width: 40 }, { id: "server", label: "服务器", width: 172 },
   { id: "expiresAt", label: "到期时间", width: 150 },
-  { id: "note", label: "备注", width: 110 },
+  { id: "note", label: "备注", width: 212 },
   { id: "uploadSpeed", label: "上传速度", width: 90 }, { id: "downloadSpeed", label: "下载速度", width: 90 },
   { id: "todayUpload", label: "今日上传", width: 74 }, { id: "todayDownload", label: "今日下载", width: 74 },
   { id: "yesterdayUpload", label: "昨日上传", width: 74 }, { id: "yesterdayDownload", label: "昨日下载", width: 74 },
@@ -13,7 +13,7 @@ const defaultColumns = [
   { id: "totalUpload", label: "总上传", width: 74 }, { id: "totalDownload", label: "总下载", width: 74 },
   { id: "uptime", label: "运行时间", width: 82 }, { id: "cpu", label: "CPU", width: 64 },
   { id: "memory", label: "内存", width: 64 }, { id: "disk", label: "存储", width: 64 },
-  { id: "actions", label: "操作", width: 72 },
+  { id: "actions", label: "操作", width: 82 },
 ];
 
 function loadColumns() {
@@ -243,12 +243,11 @@ function renderNodes() {
   $("#nodeRows").innerHTML = nodes.map((node) => {
     const isOnline = online(node), memoryPercent = percent(node.memoryUsed, node.memoryTotal), diskPercent = percent(node.diskUsed, node.diskTotal);
     const lastSeen = reportTime(node.lastSeen);
-    const status = isOnline ? "在线" : "离线";
     const statusTitle = lastSeen === "时间未知" ? "未收到有效上报" : `最后上报：${lastSeen}（北京时间）${isOnline ? "" : "；离线时间按最后上报记录显示"}`;
     const expiry = node.expiresAt ? reportTime(node.expiresAt) : "";
     return `<tr class="${isOnline ? "" : "node-offline"}">
       <td class="sort-cell" data-column="sort" data-label="排序">${node.sort}</td>
-      <td class="server-cell" data-column="server"><div class="server-name"><i class="status-dot ${isOnline ? "" : "offline"}"></i><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span><span class="server-status" title="${escapeHTML(statusTitle)}"> · ${status}</span></small></button></div></td>
+      <td class="server-cell" data-column="server"><div class="server-name"><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span>${isOnline ? "" : `<span class="server-status" title="${escapeHTML(statusTitle)}"> · 离线</span>`}</small></button></div></td>
       <td class="expiry-cell" data-column="expiresAt" data-label="到期时间"><div class="node-dates"><span class="expiry-time" title="到期时间（北京时间）">${expiry}</span>${isOnline ? "" : `<small class="offline-time" title="${escapeHTML(statusTitle)}">${lastSeen}</small>`}</div></td>
       <td class="note-cell" data-column="note" data-label="备注"><span title="${escapeHTML(node.note || "")}">${escapeHTML(node.note || "—")}</span></td>
       <td class="speed up" data-column="uploadSpeed" data-label="上传速度">↑ ${isOnline ? speedHTML(node.uploadSpeed) : "—"}</td>
@@ -265,7 +264,7 @@ function renderNodes() {
       <td class="metric-cell" data-column="cpu" data-label="CPU"><div class="metric"><span class="value">${isOnline ? `${node.cpu.toFixed(1)}%` : "—"}</span><progress class="bar" max="100" value="${isOnline ? Math.min(100, node.cpu) : 0}" aria-label="CPU 使用率"></progress></div></td>
       <td class="metric-cell" data-column="memory" data-label="内存"><div class="metric"><span class="value">${isOnline ? `${memoryPercent.toFixed(1)}%` : "—"}</span><progress class="bar" max="100" value="${isOnline ? memoryPercent : 0}" aria-label="内存使用率"></progress></div></td>
       <td class="metric-cell" data-column="disk" data-label="存储"><div class="metric"><span class="value">${isOnline ? `${diskPercent.toFixed(1)}%` : "—"}</span><progress class="bar" max="100" value="${isOnline ? diskPercent : 0}" aria-label="存储使用率"></progress></div></td>
-      <td class="actions-cell" data-column="actions"><div class="row-actions"><button type="button" class="action" title="编辑" aria-label="编辑服务器" data-edit="${node.id}">✎</button><button type="button" class="action more-action" title="更多操作" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false" aria-controls="nodeActionMenu" data-node-menu="${node.id}">⋯</button></div></td>
+      <td class="actions-cell" data-column="actions"><div class="row-actions"><button type="button" class="action edit-action" title="编辑" aria-label="编辑服务器" data-edit="${node.id}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z"/><path d="m14 5 5 5"/></svg></button><button type="button" class="action more-action" title="更多操作" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false" aria-controls="nodeActionMenu" data-node-menu="${node.id}">⋯</button></div></td>
     </tr>`;
   }).join("");
   applyColumnPreferences();
@@ -314,6 +313,7 @@ async function resetNodeTraffic(id) {
 
 function openEntityForm(kind, item = null) {
   const isNode = kind === "node";
+  $("#formDialog").classList.toggle("node-editor", isNode);
   const expiryTime = isNode && item.expiresAt ? reportTime(item.expiresAt) : "时间未知";
   const expiryInput = expiryTime === "时间未知" ? "" : expiryTime;
   const nodeGroups = isNode ? groupIDs(item) : [];
@@ -323,7 +323,7 @@ function openEntityForm(kind, item = null) {
   $("#modalKicker").textContent = isNode ? "服务器" : "分组";
   $("#modalTitle").textContent = item ? `编辑${isNode ? "服务器" : "分组"}` : "添加分组";
   $("#formFields").innerHTML = isNode
-    ? `<div class="field"><label>服务器名称</label><input name="name" required maxlength="60" value="${escapeHTML(item.name)}"></div><div class="field"><label for="nodeExpiresAt">到期时间（北京时间）</label><input id="nodeExpiresAt" name="expiresAt" type="text" autocomplete="off" maxlength="19" placeholder="2027-03-01 12:30:00" value="${escapeHTML(expiryInput)}"><small class="field-help">手动填写日期或日期时间，可留空。例如 2027-03-01 或 2027-03-01 12:30:00</small></div><div class="field"><label>备注</label><textarea name="note" maxlength="500" placeholder="填写机房、线路或用途等信息">${escapeHTML(item.note || "")}</textarea></div><div class="field"><label>排序</label><input name="sort" type="number" value="${item.sort}"></div>${groupPicker}`
+    ? `<div class="editor-column"><div class="field"><label>服务器名称</label><input name="name" required maxlength="60" value="${escapeHTML(item.name)}"></div><div class="field"><label for="nodeExpiresAt">到期时间（北京时间）</label><input id="nodeExpiresAt" name="expiresAt" type="text" autocomplete="off" maxlength="19" placeholder="2027-03-01 12:30:00" value="${escapeHTML(expiryInput)}"><small class="field-help">支持手动填写日期或日期时间，可留空</small></div><div class="field"><label>排序</label><input name="sort" type="number" value="${item.sort}"></div></div><div class="editor-column"><div class="field"><label>备注</label><textarea name="note" maxlength="500" placeholder="填写机房、线路或用途等信息">${escapeHTML(item.note || "")}</textarea></div>${groupPicker}</div>`
     : `<div class="field"><label>分组名称</label><input name="name" required maxlength="40" value="${escapeHTML(item?.name || "")}"></div><div class="field"><label>排序</label><input name="sort" type="number" value="${item?.sort ?? state.groups.length}"></div>${serverPicker}`;
   if (isNode) {
     setupGroupPicker();
@@ -416,6 +416,7 @@ async function deleteGroup(id) {
 
 function openToken(message = "") {
   if ($("#formDialog").open) return;
+  $("#formDialog").classList.remove("node-editor");
   $("#modalKicker").textContent = "安全验证"; $("#modalTitle").textContent = "管理令牌";
   $("#formFields").innerHTML = `<div class="field"><label>管理令牌</label><input name="token" type="password" required autocomplete="current-password"><small class="field-help">${escapeHTML(message || "填写当前管理令牌")}</small></div>`;
   $("#entityForm").onsubmit = (event) => { event.preventDefault(); state.token = new FormData(event.target).get("token"); localStorage.setItem("tz-admin-token", state.token); $("#formDialog").close(); load(); };
@@ -424,6 +425,7 @@ function openToken(message = "") {
 
 function openChangeToken() {
   if ($("#formDialog").open) return;
+  $("#formDialog").classList.remove("node-editor");
   $("#modalKicker").textContent = "安全设置"; $("#modalTitle").textContent = "修改管理令牌";
   $("#formFields").innerHTML = `<div class="field"><label>新管理令牌</label><input name="token" type="password" required autocomplete="new-password"></div><div class="field"><label>确认新令牌</label><input name="confirmToken" type="password" required autocomplete="new-password"></div><small class="field-help">令牌不设长度和复杂度要求，填写非空内容即可。修改后其他浏览器需重新登录。</small>`;
   $("#entityForm").onsubmit = async (event) => {

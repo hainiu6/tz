@@ -152,7 +152,7 @@ html[data-theme="light"] .field textarea{background:#fff}
 .table-wrap th,.table-wrap td,#nodeRows td{padding-left:6px;padding-right:6px}
 .table-wrap th:first-child,.table-wrap td:first-child{padding-left:8px}
 .server-cell .server-name{width:160px;min-width:160px;max-width:160px;gap:7px}
-.note-cell span{max-width:110px}
+.note-cell span{max-width:200px}
 .metric{min-width:50px}.bar{width:44px}
 .row-actions{justify-content:flex-start;gap:2px}
 .node-dates .expiry-time:empty{min-height:1.3em}
@@ -166,4 +166,30 @@ html[data-theme="light"] .field textarea{background:#fff}
 @media(max-width:760px){
   .overview{padding:10px 6px;gap:7px}
   .workspace{margin:0 6px 10px}
+}
+
+.table-wrap #nodeRows .server-cell .server-ip{color:#fff!important;font-size:12px;line-height:1.35}
+html[data-theme="light"] .table-wrap #nodeRows .server-cell .server-ip{color:var(--text)!important}
+.row-actions .edit-action{display:grid;place-items:center;width:36px;height:32px;padding:0;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.row-actions .edit-action:hover{border-color:var(--muted)}
+#formDialog{max-height:calc(100dvh - 24px);overflow:hidden}
+#formDialog.node-editor{width:min(960px,calc(100vw - 32px))}
+#entityForm{display:flex;flex-direction:column;min-height:0;max-height:calc(100dvh - 26px);padding:0}
+#entityForm>.modal-head{flex:none;padding:20px 22px 16px}
+#formFields{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 22px 20px}
+#formFields>.field:first-child{margin-top:0}
+#entityForm>.modal-actions{flex:none;margin:0;padding:14px 22px;border-top:1px solid var(--line);background:var(--panel)}
+#entityForm>.modal-actions .btn{min-height:40px}
+.node-editor #formFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:22px}
+.editor-column{display:flex;flex-direction:column;min-width:0;gap:16px}
+.node-editor .field{margin-top:0}
+.node-editor .field textarea{min-height:96px;height:110px}
+.node-editor .server-options{max-height:min(180px,30dvh)}
+@media(max-width:680px){
+  #formDialog.node-editor{width:calc(100vw - 16px)}
+  .node-editor #formFields{grid-template-columns:1fr;gap:16px}
+  #entityForm>.modal-head{padding:16px}
+  #formFields{padding:0 16px 16px}
+  #entityForm>.modal-actions{padding:12px 16px}
+  #entityForm>.modal-actions .btn{min-height:42px}
 }
