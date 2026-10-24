@@ -87,7 +87,7 @@ function trafficQuotaHTML(node) {
   if (unitIndex < 0 || amount < 0 || !Number.isFinite(quota)) return exhausted;
   const remaining = quota - (Number(node.totalUpload) || 0);
   const [number, remainingUnit] = bytes(Math.abs(remaining)).split(" ");
-  return `<span class="quota-value">${escapeHTML(node.trafficQuota)} ${unit}</span>${exhausted || `<small class="quota-remaining${remaining < 0 ? " exceeded" : ""}">${remainingHTML(`${remaining < 0 ? "−" : ""}${number}`, remainingUnit)}</small>`}`;
+  return `<span class="quota-value"><span class="quota-number">${escapeHTML(node.trafficQuota)}</span> <span class="quota-unit">${unit}</span></span>${exhausted || `<small class="quota-remaining${remaining < 0 ? " exceeded" : ""}">${remainingHTML(`${remaining < 0 ? "−" : ""}${number}`, remainingUnit)}</small>`}`;
 }
 
 function megabits(value) {
@@ -344,6 +344,9 @@ function renderSpeedTest() {
   const node = state.nodes.find((item) => item.id === state.speedTestNode);
   const job = node?.speedTest, pending = job && (job.status === "pending" || job.status === "running");
   const supported = !!node?.speedTestSupported, isOnline = node && online(node);
+  $("#speedTestCurrentUpload").textContent = isOnline ? megabits(node.uploadSpeed || 0) : "—";
+  $("#speedTestCurrentDownload").textContent = isOnline ? megabits(node.downloadSpeed || 0) : "—";
+  $("#speedTestLiveHint").textContent = isOnline ? "随节点上报自动刷新" : "节点离线，实时速度不可用";
   $("#speedTestTitle").textContent = node ? `${node.name} · 测速` : "服务器已删除";
   $("#speedTestStatus").textContent = !node ? "服务器已不存在" : pending ? (job.status === "pending" ? "等待节点接收测速指令…" : "节点测速中，完成后自动显示结果…") : !supported ? "请先通过操作菜单升级探针，或点击顶部“全部升级”" : !isOnline ? "节点离线，可查看上次结果，暂时无法发起测速" : job ? (job.status === "completed" ? "测速完成" : "测速失败或部分方向未完成，可稍后重试") : "尚未测速";
   const finished = job && !pending;
@@ -365,7 +368,6 @@ function openSpeedTest(id) {
 async function startSpeedTest() {
   const node = state.nodes.find((item) => item.id === state.speedTestNode);
   if (!node || state.speedTestStarting || $("#speedTestStart").disabled) return;
-  if (!confirm(`确定对“${node.name}”执行测速？\n节点将连接 Cloudflare，最多消耗约 128 MiB 有效载荷（另有协议开销），可能影响正常业务带宽，流量正常计入统计。`)) return;
   state.speedTestStarting = true; renderSpeedTest();
   try {
     const result = await api(`nodes/${node.id}/speedtest`, { method: "POST" });

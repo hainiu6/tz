@@ -19,6 +19,19 @@ vm.runInContext([
 const render = context.formatQuota;
 const text = (node) => render(node).replace(/<[^>]*>/g, '');
 
+const elements = new Map();
+context.$ = (selector) => {
+  if (!elements.has(selector)) elements.set(selector, { textContent: '', disabled: false });
+  return elements.get(selector);
+};
+vm.runInContext([
+  source.match(/^const online = .*;$/m)[0],
+  source.slice(source.indexOf('function megabits('), source.indexOf('function speedHTML(')),
+  source.slice(source.indexOf('function renderSpeedTest('), source.indexOf('function openSpeedTest(')),
+  source.slice(source.indexOf('async function startSpeedTest('), source.indexOf('function openEntityForm(')),
+  'this.renderSpeedDialog = renderSpeedTest; this.startSpeed = startSpeedTest;',
+].join('\n'), context);
+
 test('empty quotas leave the cell blank; zero is a valid quota', () => {
   for (const trafficQuota of [undefined, null, '', '  ']) {
     assert.equal(render({ trafficQuota, totalUpload: 1024 }), '');
@@ -57,7 +70,7 @@ test('invalid quota metadata is not rendered', () => {
 
 test('manual exhausted markers work with or without quota and can be cleared', () => {
   const node = { trafficQuota: '1', trafficQuotaUnit: 'TB', totalUpload: 0, trafficExhausted: true };
-  assert.match(render(node), /1 TB<\/span><small class="quota-exhausted">流量已用完/);
+  assert.equal(text(node), '1 TB流量已用完');
   assert.doesNotMatch(text(node), /剩/);
   assert.equal(render({ trafficExhausted: true }), '<small class="quota-exhausted">流量已用完</small>');
   node.totalUpload = 2 * 1024 ** 4;
@@ -90,8 +103,47 @@ test('expiry warnings retain the less-than-two-day and expired boundaries', () =
 
 test('remaining text, values, and units have separate styling hooks', () => {
   const html = render({ trafficQuota: '1', totalUpload: 512 * 1024 ** 3 });
+  assert.match(html, /quota-number">1<\/span> <span class="quota-unit">TB/);
   assert.match(html, /<span class="remaining-label">剩<\/span> <span class="remaining-number">512<\/span> <span class="remaining-unit">GB<\/span>/);
   const expiry = context.formatExpiry('2026-10-27T12:00:00Z');
   assert.match(expiry.html, /remaining-label">剩<\/span> <span class="remaining-number">3<\/span> <span class="remaining-unit">天/);
   assert.equal(context.formatExpiry('2026-10-24T12:00:00Z').html, '<span class="remaining-label">已到期</span>');
+});
+
+test('speed dialog separates live rates from saved benchmark results', () => {
+  const node = { id: 'live', name: 'node', lastSeen: '2026-10-24T12:00:00Z', speedTestSupported: true, uploadSpeed: 1250000, downloadSpeed: 2500000,
+    speedTest: { status: 'completed', uploadBps: 12500000, downloadBps: 25000000, requestedAt: '2026-10-24T11:00:00Z', completedAt: '2026-10-24T11:00:16Z' } };
+  context.state = { speedTestNode: 'live', nodes: [node], speedTestStarting: false };
+  context.renderSpeedDialog();
+  assert.equal(context.$('#speedTestCurrentUpload').textContent, '10.0 M/s');
+  assert.equal(context.$('#speedTestCurrentDownload').textContent, '20.0 M/s');
+  assert.equal(context.$('#speedTestUpload').textContent, '100 M/s');
+  assert.equal(context.$('#speedTestDownload').textContent, '200 M/s');
+  node.uploadSpeed = 3750000;
+  context.renderSpeedDialog();
+  assert.equal(context.$('#speedTestCurrentUpload').textContent, '30.0 M/s');
+  node.lastSeen = '2026-10-23T12:00:00Z';
+  context.renderSpeedDialog();
+  assert.equal(context.$('#speedTestCurrentUpload').textContent, '—');
+  assert.equal(context.$('#speedTestCurrentDownload').textContent, '—');
+  assert.equal(context.$('#speedTestUpload').textContent, '100 M/s');
+});
+
+test('start speed test submits directly without confirmation or duplicate requests', async () => {
+  context.state = { speedTestNode: 'live', nodes: [{ id: 'live', name: 'node', lastSeen: '2026-10-24T12:00:00Z', speedTestSupported: true }], speedTestStarting: false };
+  let requests = 0;
+  context.confirm = () => { throw new Error('unexpected confirmation'); };
+  context.api = async (path, options) => {
+    assert.equal(path, 'nodes/live/speedtest');
+    assert.equal(options.method, 'POST');
+    requests += 1;
+    return { speedTest: { id: 'job', status: 'pending', requestedAt: '2026-10-24T12:00:00Z' } };
+  };
+  context.load = async () => {};
+  context.toast = (message) => { throw new Error(message); };
+  context.renderSpeedDialog();
+  await Promise.all([context.startSpeed(), context.startSpeed()]);
+  assert.equal(requests, 1);
+  assert.equal(context.state.nodes[0].speedTest.id, 'job');
+  assert.equal(context.$('#speedTestStart').disabled, true);
 });
