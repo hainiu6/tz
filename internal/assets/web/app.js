@@ -262,12 +262,12 @@ function renderNodes() {
   $("#nodeRows").innerHTML = nodes.map((node) => {
     const isOnline = online(node), memoryPercent = percent(node.memoryUsed, node.memoryTotal), diskPercent = percent(node.diskUsed, node.diskTotal);
     const lastSeen = reportTime(node.lastSeen);
-    const statusTitle = lastSeen === "时间未知" ? "未收到有效上报" : `最后上报：${lastSeen}（北京时间）${isOnline ? "" : "；离线时间按最后上报记录显示"}`;
+    const statusTitle = lastSeen === "时间未知" ? "未收到有效上报，离线时间未知" : `${isOnline ? "最后上报" : "离线时间"}：${lastSeen}（北京时间${isOnline ? "" : "，按最后上报记录"}）`;
     const expiry = expiryInfo(node.expiresAt);
-    return `<tr class="${isOnline ? "" : "node-offline"}">
+    return `<tr class="${isOnline ? "" : "node-offline"}"${isOnline ? "" : ` title="${escapeHTML(statusTitle)}"`}>
       <td class="sort-cell" data-column="sort" data-label="排序">${node.sort}</td>
-      <td class="server-cell" data-column="server"><div class="server-name"><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span>${isOnline ? "" : `<span class="server-status" title="${escapeHTML(statusTitle)}"> · 离线</span>`}</small></button></div></td>
-      <td class="expiry-cell" data-column="expiresAt" data-label="到期时间"><div class="node-dates"><span class="expiry-time${expiry?.urgent ? " expiring" : ""}" title="到期时间（北京时间）">${expiry ? `<span class="expiry-date">${expiry.date}</span><small class="expiry-remaining">${expiry.label}</small>` : ""}</span>${isOnline ? "" : `<small class="offline-time" title="${escapeHTML(statusTitle)}">${lastSeen}</small>`}</div></td>
+      <td class="server-cell" data-column="server"><div class="server-name"><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="${isOnline ? "" : `${escapeHTML(statusTitle)}；`}点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span>${isOnline ? "" : `<span class="server-status" title="${escapeHTML(statusTitle)}"> · 离线</span>`}</small></button></div></td>
+      <td class="expiry-cell" data-column="expiresAt" data-label="到期时间"><div class="node-dates"><span class="expiry-time${expiry?.urgent ? " expiring" : ""}" title="到期时间（北京时间）${isOnline ? "" : `；${escapeHTML(statusTitle)}`}">${expiry ? `<span class="expiry-date">${expiry.date}</span><small class="expiry-remaining">${expiry.label}</small>` : ""}</span></div></td>
       <td class="traffic-quota-cell" data-column="trafficQuota" data-label="流量">${trafficQuotaHTML(node)}</td>
       <td class="note-cell" data-column="note" data-label="备注"><span title="${escapeHTML(node.note || "")}">${escapeHTML(node.note || "—")}</span></td>
       <td class="speed up" data-column="uploadSpeed" data-label="上传速度">↑ ${isOnline ? speedHTML(node.uploadSpeed) : "—"}</td>

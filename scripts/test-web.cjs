@@ -12,6 +12,8 @@ vm.runInContext([
   source.match(/const trafficUnits = .*;/)[0],
   source.slice(source.indexOf('function bytes('), source.indexOf('function megabits(')),
   source.slice(source.indexOf('const escapeHTML ='), source.indexOf('\nfunction toast(')),
+  source.slice(source.indexOf('function reportTime('), source.indexOf('function parseExpiryInput(')),
+  'Date.now = () => Date.parse("2026-10-24T12:00:00Z"); this.formatExpiry = expiryInfo;',
   'this.formatQuota = trafficQuotaHTML;',
 ].join('\n'), context);
 const render = context.formatQuota;
@@ -49,5 +51,26 @@ test('remaining traffic is recalculated after uploads and resets', () => {
 test('invalid quota metadata is not rendered', () => {
   for (const node of [{ trafficQuota: '-1' }, { trafficQuota: 'NaN' }, { trafficQuota: '1e1000' }, { trafficQuota: '1', trafficQuotaUnit: 'XB' }]) {
     assert.equal(render(node), '');
+  }
+});
+
+test('expiry dates use Beijing time to the minute and remaining full days', () => {
+  const info = context.formatExpiry('2026-10-27T12:00:00Z');
+  assert.equal(info.date, '2026-10-27 20:00');
+  assert.equal(info.label, '剩余3天');
+  assert.equal(info.urgent, false);
+  assert.equal(context.formatExpiry(''), null);
+});
+
+test('expiry warnings retain the less-than-two-day and expired boundaries', () => {
+  for (const [date, label, urgent] of [
+    ['2026-10-26T12:00:00Z', '剩余2天', false],
+    ['2026-10-26T11:59:59Z', '剩余1天', true],
+    ['2026-10-25T11:59:59Z', '不足1天', true],
+    ['2026-10-24T12:00:00Z', '已到期', true],
+  ]) {
+    const info = context.formatExpiry(date);
+    assert.equal(info.label, label);
+    assert.equal(info.urgent, urgent);
   }
 });
