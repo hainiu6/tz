@@ -75,6 +75,10 @@ function bytes(value, speed = false) {
   return `${size.toFixed(digits)} ${units[unit]}${speed ? "/s" : ""}`;
 }
 
+function remainingHTML(number, unit, prefix = "剩") {
+  return `<span class="remaining-label">${escapeHTML(prefix)}</span> <span class="remaining-number">${escapeHTML(number)}</span> <span class="remaining-unit">${escapeHTML(unit)}</span>`;
+}
+
 function trafficQuotaHTML(node) {
   const exhausted = node.trafficExhausted ? '<small class="quota-exhausted">流量已用完</small>' : "";
   if (node.trafficQuota === undefined || node.trafficQuota === null || String(node.trafficQuota).trim() === "") return exhausted;
@@ -82,7 +86,8 @@ function trafficQuotaHTML(node) {
   const unitIndex = trafficUnits.indexOf(unit), quota = amount * 1024 ** unitIndex;
   if (unitIndex < 0 || amount < 0 || !Number.isFinite(quota)) return exhausted;
   const remaining = quota - (Number(node.totalUpload) || 0);
-  return `<span class="quota-value">${escapeHTML(node.trafficQuota)} ${unit}</span>${exhausted || `<small class="quota-remaining${remaining < 0 ? " exceeded" : ""}">剩余 ${remaining < 0 ? "−" : ""}${bytes(Math.abs(remaining))}</small>`}`;
+  const [number, remainingUnit] = bytes(Math.abs(remaining)).split(" ");
+  return `<span class="quota-value">${escapeHTML(node.trafficQuota)} ${unit}</span>${exhausted || `<small class="quota-remaining${remaining < 0 ? " exceeded" : ""}">${remainingHTML(`${remaining < 0 ? "−" : ""}${number}`, remainingUnit)}</small>`}`;
 }
 
 function megabits(value) {
@@ -115,8 +120,9 @@ function expiryInfo(value) {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp) || timestamp <= 0) return null;
   const day = 86400000, remaining = timestamp - Date.now();
-  const label = remaining <= 0 ? "已到期" : remaining < day ? "不足1天" : `剩余${Math.floor(remaining / day)}天`;
-  return { date: reportTime(value).slice(0, 16), label, urgent: remaining < 2 * day };
+  const label = remaining <= 0 ? "已到期" : remaining < day ? "剩不足1天" : `剩${Math.floor(remaining / day)}天`;
+  const html = remaining <= 0 ? '<span class="remaining-label">已到期</span>' : remainingHTML(remaining < day ? 1 : Math.floor(remaining / day), "天", remaining < day ? "剩不足" : "剩");
+  return { date: reportTime(value).slice(0, 16), label, html, urgent: remaining < 2 * day };
 }
 
 function parseExpiryInput(value) {
@@ -269,7 +275,7 @@ function renderNodes() {
     return `<tr class="${isOnline ? "" : "node-offline"}"${isOnline ? "" : ` title="${escapeHTML(statusTitle)}"`}>
       <td class="sort-cell" data-column="sort" data-label="排序">${node.sort}</td>
       <td class="server-cell" data-column="server"><div class="server-name"><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="${isOnline ? "" : `${escapeHTML(statusTitle)}；`}点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span>${isOnline ? "" : `<span class="server-status" title="${escapeHTML(statusTitle)}"> · 离线</span>`}</small></button></div></td>
-      <td class="expiry-cell" data-column="expiresAt" data-label="到期时间"><div class="node-dates"><span class="expiry-time${expiry?.urgent ? " expiring" : ""}" title="到期时间（北京时间）${isOnline ? "" : `；${escapeHTML(statusTitle)}`}">${expiry ? `<span class="expiry-date">${expiry.date}</span><small class="expiry-remaining">${expiry.label}</small>` : ""}</span></div></td>
+      <td class="expiry-cell" data-column="expiresAt" data-label="到期时间"><div class="node-dates"><span class="expiry-time${expiry?.urgent ? " expiring" : ""}" title="到期时间（北京时间）${isOnline ? "" : `；${escapeHTML(statusTitle)}`}">${expiry ? `<span class="expiry-date">${expiry.date}</span><small class="expiry-remaining">${expiry.html}</small>` : ""}</span></div></td>
       <td class="traffic-quota-cell" data-column="trafficQuota" data-label="流量">${trafficQuotaHTML(node)}</td>
       <td class="note-cell" data-column="note" data-label="备注"><span title="${escapeHTML(node.note || "")}">${escapeHTML(node.note || "—")}</span></td>
       <td class="speed up" data-column="uploadSpeed" data-label="上传速度">↑ ${isOnline ? speedHTML(node.uploadSpeed) : "—"}</td>
