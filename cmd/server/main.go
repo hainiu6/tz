@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -169,6 +171,8 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 			Sort                int
 			GroupIDs            *[]string `json:"groupIds"`
 			ExpiresAt           *string   `json:"expiresAt"`
+			TrafficQuota        *string   `json:"trafficQuota"`
+			TrafficQuotaUnit    *string   `json:"trafficQuotaUnit"`
 		}
 		if !decode(w, r, &in) {
 			return
@@ -182,7 +186,7 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "备注不能超过 500 个字符", http.StatusBadRequest)
 			return
 		}
-		var expiry []string
+		metadata := store.NodeMetadata{}
 		if in.ExpiresAt != nil {
 			value := strings.TrimSpace(*in.ExpiresAt)
 			if value != "" {
@@ -193,7 +197,32 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 				}
 				value = parsed.UTC().Format(time.RFC3339)
 			}
-			expiry = []string{value}
+			metadata.ExpiresAt = &value
+		}
+		if in.TrafficQuota != nil {
+			value, unit := strings.TrimSpace(*in.TrafficQuota), ""
+			if value != "" {
+				amount, err := strconv.ParseFloat(value, 64)
+				if err != nil || math.IsNaN(amount) || math.IsInf(amount, 0) || amount < 0 {
+					jsonError(w, "流量必须为大于或等于 0 的有效数值", http.StatusBadRequest)
+					return
+				}
+				value = strconv.FormatFloat(amount, 'f', -1, 64)
+				unit = "GB"
+				if in.TrafficQuotaUnit != nil && strings.TrimSpace(*in.TrafficQuotaUnit) != "" {
+					unit = strings.ToUpper(strings.TrimSpace(*in.TrafficQuotaUnit))
+				}
+				switch unit {
+				case "B", "KB", "MB", "GB", "TB", "PB":
+				default:
+					jsonError(w, "流量单位只支持 B、KB、MB、GB、TB、PB", http.StatusBadRequest)
+					return
+				}
+			}
+			metadata.TrafficQuota, metadata.TrafficQuotaUnit = &value, &unit
+		} else if in.TrafficQuotaUnit != nil {
+			jsonError(w, "请同时填写流量数值和单位", http.StatusBadRequest)
+			return
 		}
 		groupIDs := []string{}
 		if in.GroupIDs != nil {
@@ -201,7 +230,7 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 		} else if in.GroupID != "" {
 			groupIDs = []string{in.GroupID}
 		}
-		respondErr(w, s.store.UpdateNode(parts[1], strings.TrimSpace(in.Name), note, groupIDs, in.Sort, expiry...))
+		respondErr(w, s.store.UpdateNode(parts[1], strings.TrimSpace(in.Name), note, groupIDs, in.Sort, metadata))
 	case len(parts) == 2 && parts[0] == "nodes" && r.Method == http.MethodDelete:
 		respondErr(w, s.store.DeleteNode(parts[1]))
 	case len(parts) == 3 && parts[0] == "nodes" && parts[2] == "upgrade" && r.Method == http.MethodPost:

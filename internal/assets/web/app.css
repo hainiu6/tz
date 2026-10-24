@@ -185,6 +185,8 @@ html[data-theme="light"] .table-wrap #nodeRows .server-cell .server-ip{color:#a1
 #entityForm>.modal-actions .btn{min-height:40px}
 .node-editor #formFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:22px}
 .editor-column{display:flex;flex-direction:column;min-width:0;gap:16px}
+.quota-inputs{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(80px,1fr);gap:10px}
+.quota-inputs input,.quota-inputs select{min-width:0}
 .node-editor .field{margin-top:0}
 .node-editor .field textarea{min-height:96px;height:110px}
 .node-editor .server-options{max-height:min(180px,30dvh)}

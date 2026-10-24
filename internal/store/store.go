@@ -32,6 +32,8 @@ type Node struct {
 	Name                       string    `json:"name"`
 	Note                       string    `json:"note,omitempty"`
 	ExpiresAt                  string    `json:"expiresAt,omitempty"`
+	TrafficQuota               string    `json:"trafficQuota,omitempty"`
+	TrafficQuotaUnit           string    `json:"trafficQuotaUnit,omitempty"`
 	IP                         string    `json:"ip"`
 	GroupIDs                   []string  `json:"groupIds"`
 	GroupID                    string    `json:"groupId,omitempty"` // legacy API compatibility
@@ -207,9 +209,15 @@ func (s *Store) CreateNode(name, groupID string, order int) (Node, error) {
 	return n, s.saveLocked()
 }
 
-// Omitting expiresAt preserves the previous expiry for older API clients.
-// Passing an empty string explicitly clears it.
-func (s *Store) UpdateNode(id, name, note string, groupIDs []string, order int, expiresAt ...string) error {
+type NodeMetadata struct {
+	ExpiresAt        *string
+	TrafficQuota     *string
+	TrafficQuotaUnit *string
+}
+
+// Omitted metadata fields preserve previous values for older API clients.
+// An explicitly empty string clears the corresponding field.
+func (s *Store) UpdateNode(id, name, note string, groupIDs []string, order int, metadata ...NodeMetadata) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i := range s.data.Nodes {
@@ -218,8 +226,16 @@ func (s *Store) UpdateNode(id, name, note string, groupIDs []string, order int, 
 			s.data.Nodes[i].Name, s.data.Nodes[i].Note = name, note
 			s.data.Nodes[i].GroupIDs, s.data.Nodes[i].Sort = unique(groupIDs), order
 			s.data.Nodes[i].GroupID = ""
-			if len(expiresAt) > 0 {
-				s.data.Nodes[i].ExpiresAt = expiresAt[0]
+			if len(metadata) > 0 {
+				if metadata[0].ExpiresAt != nil {
+					s.data.Nodes[i].ExpiresAt = *metadata[0].ExpiresAt
+				}
+				if metadata[0].TrafficQuota != nil {
+					s.data.Nodes[i].TrafficQuota = *metadata[0].TrafficQuota
+				}
+				if metadata[0].TrafficQuotaUnit != nil {
+					s.data.Nodes[i].TrafficQuotaUnit = *metadata[0].TrafficQuotaUnit
+				}
 			}
 			if err := s.saveLocked(); err != nil {
 				s.data.Nodes[i] = previous

@@ -5,6 +5,7 @@ document.documentElement.dataset.theme = initialTheme;
 const defaultColumns = [
   { id: "sort", label: "排序", width: 40 }, { id: "server", label: "服务器", width: 152 },
   { id: "expiresAt", label: "到期时间", width: 190 },
+  { id: "trafficQuota", label: "流量", width: 86 },
   { id: "note", label: "备注", width: 212 },
   { id: "uploadSpeed", label: "上传速度", width: 90 }, { id: "downloadSpeed", label: "下载速度", width: 90 },
   { id: "todayUpload", label: "今日上传", width: 74 }, { id: "todayDownload", label: "今日下载", width: 74 },
@@ -15,6 +16,7 @@ const defaultColumns = [
   { id: "memory", label: "内存", width: 64 }, { id: "disk", label: "存储", width: 64 },
   { id: "actions", label: "操作", width: 82 },
 ];
+const trafficUnits = ["B", "KB", "MB", "GB", "TB", "PB"];
 
 function loadColumns() {
   let saved = [];
@@ -29,7 +31,7 @@ function loadColumns() {
   defaultColumns.forEach((column) => {
     if (seen.has(column.id)) return;
     const value = { ...column, visible: true }; seen.add(column.id);
-    const after = { expiresAt: "server", note: "expiresAt", dayBeforeYesterdayUpload: "yesterdayDownload", dayBeforeYesterdayDownload: "dayBeforeYesterdayUpload" }[column.id];
+    const after = { expiresAt: "server", trafficQuota: "expiresAt", note: "trafficQuota", dayBeforeYesterdayUpload: "yesterdayDownload", dayBeforeYesterdayDownload: "dayBeforeYesterdayUpload" }[column.id];
     const anchorIndex = columns.findIndex((item) => item.id === after);
     if (anchorIndex >= 0) { columns.splice(anchorIndex + 1, 0, value); return; }
     columns.push(value);
@@ -257,6 +259,7 @@ function renderNodes() {
       <td class="sort-cell" data-column="sort" data-label="排序">${node.sort}</td>
       <td class="server-cell" data-column="server"><div class="server-name"><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span>${isOnline ? "" : `<span class="server-status" title="${escapeHTML(statusTitle)}"> · 离线</span>`}</small></button></div></td>
       <td class="expiry-cell" data-column="expiresAt" data-label="到期时间"><div class="node-dates"><span class="expiry-time${expiry?.urgent ? " expiring" : ""}" title="到期时间（北京时间）">${expiry ? `<span class="expiry-date">${expiry.date}</span><small class="expiry-remaining">${expiry.label}</small>` : ""}</span>${isOnline ? "" : `<small class="offline-time" title="${escapeHTML(statusTitle)}">${lastSeen}</small>`}</div></td>
+      <td class="traffic-quota-cell" data-column="trafficQuota" data-label="流量">${node.trafficQuota ? `${escapeHTML(node.trafficQuota)} ${escapeHTML(node.trafficQuotaUnit || "GB")}` : ""}</td>
       <td class="note-cell" data-column="note" data-label="备注"><span title="${escapeHTML(node.note || "")}">${escapeHTML(node.note || "—")}</span></td>
       <td class="speed up" data-column="uploadSpeed" data-label="上传速度">↑ ${isOnline ? speedHTML(node.uploadSpeed) : "—"}</td>
       <td class="speed down" data-column="downloadSpeed" data-label="下载速度">↓ ${isOnline ? speedHTML(node.downloadSpeed) : "—"}</td>
@@ -324,6 +327,7 @@ function openEntityForm(kind, item = null) {
   $("#formDialog").classList.toggle("node-editor", isNode);
   const expiryTime = isNode && item.expiresAt ? reportTime(item.expiresAt) : "时间未知";
   const expiryInput = expiryTime === "时间未知" ? "" : expiryTime.slice(0, 16);
+  const trafficField = isNode ? `<div class="field"><label for="nodeTrafficQuota">流量</label><div class="quota-inputs"><input id="nodeTrafficQuota" name="trafficQuota" type="number" min="0" step="any" placeholder="例如 500" value="${escapeHTML(item.trafficQuota || "")}"><select name="trafficQuotaUnit" aria-label="流量单位">${trafficUnits.map((unit) => `<option value="${unit}" ${(item.trafficQuotaUnit || "GB") === unit ? "selected" : ""}>${unit}</option>`).join("")}</select></div><small class="field-help">手动填写套餐流量，可留空</small></div>` : "";
   const nodeGroups = isNode ? groupIDs(item) : [];
   const groupPicker = isNode ? `<div class="field"><label>所属分组</label><details class="server-picker"><summary><span id="groupSummary">已选择 ${nodeGroups.length} 个分组</span><i>⌄</i></summary><div class="server-options">${state.groups.map((group) => `<label class="server-option"><input class="group-choice" type="checkbox" value="${group.id}" ${nodeGroups.includes(group.id) ? "checked" : ""}><span>${escapeHTML(group.name)}</span></label>`).join("") || '<div class="no-options">暂无分组</div>'}</div></details></div>` : "";
   const selectedCount = !isNode && item ? state.nodes.filter((node) => groupIDs(node).includes(item.id)).length : 0;
@@ -331,7 +335,7 @@ function openEntityForm(kind, item = null) {
   $("#modalKicker").textContent = isNode ? "服务器" : "分组";
   $("#modalTitle").textContent = item ? `编辑${isNode ? "服务器" : "分组"}` : "添加分组";
   $("#formFields").innerHTML = isNode
-    ? `<div class="editor-column"><div class="field"><label>服务器名称</label><input name="name" required maxlength="60" value="${escapeHTML(item.name)}"></div><div class="field"><label for="nodeExpiresAt">到期时间（北京时间）</label><input id="nodeExpiresAt" name="expiresAt" type="text" autocomplete="off" maxlength="16" placeholder="2027-03-01 12:30" value="${escapeHTML(expiryInput)}"><small class="field-help">手动填写日期或日期时间，无需秒数，可留空</small></div><div class="field"><label>排序</label><input name="sort" type="number" value="${item.sort}"></div></div><div class="editor-column"><div class="field"><label>备注</label><textarea name="note" maxlength="500" placeholder="填写机房、线路或用途等信息">${escapeHTML(item.note || "")}</textarea></div>${groupPicker}</div>`
+    ? `<div class="editor-column"><div class="field"><label>服务器名称</label><input name="name" required maxlength="60" value="${escapeHTML(item.name)}"></div><div class="field"><label for="nodeExpiresAt">到期时间（北京时间）</label><input id="nodeExpiresAt" name="expiresAt" type="text" autocomplete="off" maxlength="16" placeholder="2027-03-01 12:30" value="${escapeHTML(expiryInput)}"><small class="field-help">手动填写日期或日期时间，无需秒数，可留空</small></div>${trafficField}<div class="field"><label>排序</label><input name="sort" type="number" value="${item.sort}"></div></div><div class="editor-column"><div class="field"><label>备注</label><textarea name="note" maxlength="500" placeholder="填写机房、线路或用途等信息">${escapeHTML(item.note || "")}</textarea></div>${groupPicker}</div>`
     : `<div class="field"><label>分组名称</label><input name="name" required maxlength="40" value="${escapeHTML(item?.name || "")}"></div><div class="field"><label>排序</label><input name="sort" type="number" value="${item?.sort ?? state.groups.length}"></div>${serverPicker}`;
   if (isNode) {
     setupGroupPicker();
@@ -342,6 +346,7 @@ function openEntityForm(kind, item = null) {
     event.preventDefault(); const body = Object.fromEntries(new FormData(event.target)); body.sort = Number(body.sort) || 0;
     if (isNode) {
       body.groupIds = [...document.querySelectorAll(".group-choice:checked")].map((checkbox) => checkbox.value);
+      if (!body.trafficQuota) body.trafficQuotaUnit = "";
       try { body.expiresAt = expiryInput && body.expiresAt.trim() === expiryInput ? item.expiresAt : parseExpiryInput(body.expiresAt); }
       catch (error) { $("#nodeExpiresAt").setCustomValidity(error.message); $("#nodeExpiresAt").reportValidity(); return; }
     }
