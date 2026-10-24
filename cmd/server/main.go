@@ -173,6 +173,7 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 			ExpiresAt           *string   `json:"expiresAt"`
 			TrafficQuota        *string   `json:"trafficQuota"`
 			TrafficQuotaUnit    *string   `json:"trafficQuotaUnit"`
+			TrafficExhausted    *bool     `json:"trafficExhausted"`
 		}
 		if !decode(w, r, &in) {
 			return
@@ -186,7 +187,7 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, "备注不能超过 500 个字符", http.StatusBadRequest)
 			return
 		}
-		metadata := store.NodeMetadata{}
+		metadata := store.NodeMetadata{TrafficExhausted: in.TrafficExhausted}
 		if in.ExpiresAt != nil {
 			value := strings.TrimSpace(*in.ExpiresAt)
 			if value != "" {

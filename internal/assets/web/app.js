@@ -75,12 +75,13 @@ function bytes(value, speed = false) {
 }
 
 function trafficQuotaHTML(node) {
-  if (node.trafficQuota === undefined || node.trafficQuota === null || String(node.trafficQuota).trim() === "") return "";
+  const exhausted = node.trafficExhausted ? '<small class="quota-exhausted">流量已用完</small>' : "";
+  if (node.trafficQuota === undefined || node.trafficQuota === null || String(node.trafficQuota).trim() === "") return exhausted;
   const amount = Number(node.trafficQuota), unit = node.trafficQuotaUnit || "TB";
   const unitIndex = trafficUnits.indexOf(unit), quota = amount * 1024 ** unitIndex;
-  if (unitIndex < 0 || amount < 0 || !Number.isFinite(quota)) return "";
+  if (unitIndex < 0 || amount < 0 || !Number.isFinite(quota)) return exhausted;
   const remaining = quota - (Number(node.totalUpload) || 0);
-  return `<span class="quota-value">${escapeHTML(node.trafficQuota)} ${unit}</span><small class="quota-remaining${remaining < 0 ? " exceeded" : ""}">剩余 ${remaining < 0 ? "−" : ""}${bytes(Math.abs(remaining))}</small>`;
+  return `<span class="quota-value">${escapeHTML(node.trafficQuota)} ${unit}</span>${exhausted || `<small class="quota-remaining${remaining < 0 ? " exceeded" : ""}">剩余 ${remaining < 0 ? "−" : ""}${bytes(Math.abs(remaining))}</small>`}`;
 }
 
 function megabits(value) {
@@ -336,7 +337,7 @@ function openEntityForm(kind, item = null) {
   $("#formDialog").classList.toggle("node-editor", isNode);
   const expiryTime = isNode && item.expiresAt ? reportTime(item.expiresAt) : "时间未知";
   const expiryInput = expiryTime === "时间未知" ? "" : expiryTime.slice(0, 16);
-  const trafficField = isNode ? `<div class="field"><label for="nodeTrafficQuota">流量</label><div class="quota-inputs"><input id="nodeTrafficQuota" name="trafficQuota" type="number" min="0" step="any" placeholder="例如 1" value="${escapeHTML(item.trafficQuota || "")}"><select name="trafficQuotaUnit" aria-label="流量单位">${trafficUnits.map((unit) => `<option value="${unit}" ${(item.trafficQuotaUnit || "TB") === unit ? "selected" : ""}>${unit}</option>`).join("")}</select></div><small class="field-help">默认 TB；剩余流量 = 填写流量 − 总上传，可留空</small></div>` : "";
+  const trafficField = isNode ? `<div class="field"><label for="nodeTrafficQuota">流量</label><div class="quota-inputs"><input id="nodeTrafficQuota" name="trafficQuota" type="number" min="0" step="any" placeholder="例如 1" value="${escapeHTML(item.trafficQuota || "")}"><select name="trafficQuotaUnit" aria-label="流量单位">${trafficUnits.map((unit) => `<option value="${unit}" ${(item.trafficQuotaUnit || "TB") === unit ? "selected" : ""}>${unit}</option>`).join("")}</select></div><small class="field-help">默认 TB；剩余流量 = 填写流量 − 总上传，可留空</small><label class="traffic-exhausted-toggle"><input name="trafficExhausted" type="checkbox" ${item.trafficExhausted ? "checked" : ""}>流量已用完</label><small class="field-help">仅手动标记，不修改统计；取消勾选可恢复剩余流量显示</small></div>` : "";
   const nodeGroups = isNode ? groupIDs(item) : [];
   const groupPicker = isNode ? `<div class="field"><label>所属分组</label><details class="server-picker"><summary><span id="groupSummary">已选择 ${nodeGroups.length} 个分组</span><i>⌄</i></summary><div class="server-options">${state.groups.map((group) => `<label class="server-option"><input class="group-choice" type="checkbox" value="${group.id}" ${nodeGroups.includes(group.id) ? "checked" : ""}><span>${escapeHTML(group.name)}</span></label>`).join("") || '<div class="no-options">暂无分组</div>'}</div></details></div>` : "";
   const selectedCount = !isNode && item ? state.nodes.filter((node) => groupIDs(node).includes(item.id)).length : 0;
@@ -354,6 +355,7 @@ function openEntityForm(kind, item = null) {
   $("#entityForm").onsubmit = async (event) => {
     event.preventDefault(); const body = Object.fromEntries(new FormData(event.target)); body.sort = Number(body.sort) || 0;
     if (isNode) {
+      body.trafficExhausted = event.target.elements.trafficExhausted.checked;
       body.groupIds = [...document.querySelectorAll(".group-choice:checked")].map((checkbox) => checkbox.value);
       if (!body.trafficQuota) body.trafficQuotaUnit = "";
       try { body.expiresAt = expiryInput && body.expiresAt.trim() === expiryInput ? item.expiresAt : parseExpiryInput(body.expiresAt); }

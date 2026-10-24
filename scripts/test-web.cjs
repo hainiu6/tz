@@ -54,6 +54,18 @@ test('invalid quota metadata is not rendered', () => {
   }
 });
 
+test('manual exhausted markers work with or without quota and can be cleared', () => {
+  const node = { trafficQuota: '1', trafficQuotaUnit: 'TB', totalUpload: 0, trafficExhausted: true };
+  assert.match(render(node), /1 TB<\/span><small class="quota-exhausted">流量已用完/);
+  assert.doesNotMatch(render(node), /剩余/);
+  assert.equal(render({ trafficExhausted: true }), '<small class="quota-exhausted">流量已用完</small>');
+  node.totalUpload = 2 * 1024 ** 4;
+  assert.match(render(node), /流量已用完/);
+  node.trafficExhausted = false;
+  assert.match(render(node), /剩余 −1.00 TB/);
+  assert.doesNotMatch(render(node), /流量已用完/);
+});
+
 test('expiry dates use Beijing time to the minute and remaining full days', () => {
   const info = context.formatExpiry('2026-10-27T12:00:00Z');
   assert.equal(info.date, '2026-10-27 20:00');

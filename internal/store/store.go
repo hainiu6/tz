@@ -34,6 +34,7 @@ type Node struct {
 	ExpiresAt                  string    `json:"expiresAt,omitempty"`
 	TrafficQuota               string    `json:"trafficQuota,omitempty"`
 	TrafficQuotaUnit           string    `json:"trafficQuotaUnit,omitempty"`
+	TrafficExhausted           bool      `json:"trafficExhausted,omitempty"`
 	IP                         string    `json:"ip"`
 	GroupIDs                   []string  `json:"groupIds"`
 	GroupID                    string    `json:"groupId,omitempty"` // legacy API compatibility
@@ -213,6 +214,7 @@ type NodeMetadata struct {
 	ExpiresAt        *string
 	TrafficQuota     *string
 	TrafficQuotaUnit *string
+	TrafficExhausted *bool
 }
 
 // Omitted metadata fields preserve previous values for older API clients.
@@ -235,6 +237,9 @@ func (s *Store) UpdateNode(id, name, note string, groupIDs []string, order int, 
 				}
 				if metadata[0].TrafficQuotaUnit != nil {
 					s.data.Nodes[i].TrafficQuotaUnit = *metadata[0].TrafficQuotaUnit
+				}
+				if metadata[0].TrafficExhausted != nil {
+					s.data.Nodes[i].TrafficExhausted = *metadata[0].TrafficExhausted
 				}
 			}
 			if err := s.saveLocked(); err != nil {
