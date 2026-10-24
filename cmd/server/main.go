@@ -208,7 +208,7 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				value = strconv.FormatFloat(amount, 'f', -1, 64)
-				unit = "GB"
+				unit = "TB"
 				if in.TrafficQuotaUnit != nil && strings.TrimSpace(*in.TrafficQuotaUnit) != "" {
 					unit = strings.ToUpper(strings.TrimSpace(*in.TrafficQuotaUnit))
 				}

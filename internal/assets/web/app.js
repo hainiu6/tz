@@ -74,6 +74,15 @@ function bytes(value, speed = false) {
   return `${size.toFixed(digits)} ${units[unit]}${speed ? "/s" : ""}`;
 }
 
+function trafficQuotaHTML(node) {
+  if (node.trafficQuota === undefined || node.trafficQuota === null || String(node.trafficQuota).trim() === "") return "";
+  const amount = Number(node.trafficQuota), unit = node.trafficQuotaUnit || "TB";
+  const unitIndex = trafficUnits.indexOf(unit), quota = amount * 1024 ** unitIndex;
+  if (unitIndex < 0 || amount < 0 || !Number.isFinite(quota)) return "";
+  const remaining = quota - (Number(node.totalUpload) || 0);
+  return `<span class="quota-value">${escapeHTML(node.trafficQuota)} ${unit}</span><small class="quota-remaining${remaining < 0 ? " exceeded" : ""}">剩余 ${remaining < 0 ? "−" : ""}${bytes(Math.abs(remaining))}</small>`;
+}
+
 function megabits(value) {
   const mbps = value * 8 / 1000000;
   return `${mbps.toFixed(mbps >= 100 ? 0 : mbps >= 10 ? 1 : 2)} M/s`;
@@ -259,7 +268,7 @@ function renderNodes() {
       <td class="sort-cell" data-column="sort" data-label="排序">${node.sort}</td>
       <td class="server-cell" data-column="server"><div class="server-name"><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span>${isOnline ? "" : `<span class="server-status" title="${escapeHTML(statusTitle)}"> · 离线</span>`}</small></button></div></td>
       <td class="expiry-cell" data-column="expiresAt" data-label="到期时间"><div class="node-dates"><span class="expiry-time${expiry?.urgent ? " expiring" : ""}" title="到期时间（北京时间）">${expiry ? `<span class="expiry-date">${expiry.date}</span><small class="expiry-remaining">${expiry.label}</small>` : ""}</span>${isOnline ? "" : `<small class="offline-time" title="${escapeHTML(statusTitle)}">${lastSeen}</small>`}</div></td>
-      <td class="traffic-quota-cell" data-column="trafficQuota" data-label="流量">${node.trafficQuota ? `${escapeHTML(node.trafficQuota)} ${escapeHTML(node.trafficQuotaUnit || "GB")}` : ""}</td>
+      <td class="traffic-quota-cell" data-column="trafficQuota" data-label="流量">${trafficQuotaHTML(node)}</td>
       <td class="note-cell" data-column="note" data-label="备注"><span title="${escapeHTML(node.note || "")}">${escapeHTML(node.note || "—")}</span></td>
       <td class="speed up" data-column="uploadSpeed" data-label="上传速度">↑ ${isOnline ? speedHTML(node.uploadSpeed) : "—"}</td>
       <td class="speed down" data-column="downloadSpeed" data-label="下载速度">↓ ${isOnline ? speedHTML(node.downloadSpeed) : "—"}</td>
@@ -327,7 +336,7 @@ function openEntityForm(kind, item = null) {
   $("#formDialog").classList.toggle("node-editor", isNode);
   const expiryTime = isNode && item.expiresAt ? reportTime(item.expiresAt) : "时间未知";
   const expiryInput = expiryTime === "时间未知" ? "" : expiryTime.slice(0, 16);
-  const trafficField = isNode ? `<div class="field"><label for="nodeTrafficQuota">流量</label><div class="quota-inputs"><input id="nodeTrafficQuota" name="trafficQuota" type="number" min="0" step="any" placeholder="例如 500" value="${escapeHTML(item.trafficQuota || "")}"><select name="trafficQuotaUnit" aria-label="流量单位">${trafficUnits.map((unit) => `<option value="${unit}" ${(item.trafficQuotaUnit || "GB") === unit ? "selected" : ""}>${unit}</option>`).join("")}</select></div><small class="field-help">手动填写套餐流量，可留空</small></div>` : "";
+  const trafficField = isNode ? `<div class="field"><label for="nodeTrafficQuota">流量</label><div class="quota-inputs"><input id="nodeTrafficQuota" name="trafficQuota" type="number" min="0" step="any" placeholder="例如 1" value="${escapeHTML(item.trafficQuota || "")}"><select name="trafficQuotaUnit" aria-label="流量单位">${trafficUnits.map((unit) => `<option value="${unit}" ${(item.trafficQuotaUnit || "TB") === unit ? "selected" : ""}>${unit}</option>`).join("")}</select></div><small class="field-help">默认 TB；剩余流量 = 填写流量 − 总上传，可留空</small></div>` : "";
   const nodeGroups = isNode ? groupIDs(item) : [];
   const groupPicker = isNode ? `<div class="field"><label>所属分组</label><details class="server-picker"><summary><span id="groupSummary">已选择 ${nodeGroups.length} 个分组</span><i>⌄</i></summary><div class="server-options">${state.groups.map((group) => `<label class="server-option"><input class="group-choice" type="checkbox" value="${group.id}" ${nodeGroups.includes(group.id) ? "checked" : ""}><span>${escapeHTML(group.name)}</span></label>`).join("") || '<div class="no-options">暂无分组</div>'}</div></details></div>` : "";
   const selectedCount = !isNode && item ? state.nodes.filter((node) => groupIDs(node).includes(item.id)).length : 0;

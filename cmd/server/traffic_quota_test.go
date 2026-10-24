@@ -78,14 +78,16 @@ func TestTrafficQuotaPersistenceValidationAndClear(t *testing.T) {
 		check("2.5", unit)
 	}
 	update(map[string]any{"trafficQuota": "500"}, "admin", http.StatusOK)
-	check("500", "GB")
+	check("500", "TB")
+	update(map[string]any{"trafficQuota": "1.5", "trafficQuotaUnit": ""}, "admin", http.StatusOK)
+	check("1.5", "TB")
 	for _, body := range []map[string]any{
 		{"trafficQuota": "-1", "expiresAt": "2028-01-01T00:00:00Z"},
 		{"trafficQuota": "NaN"}, {"trafficQuota": "+Inf"}, {"trafficQuota": "1e1000"}, {"trafficQuota": "invalid"},
 		{"trafficQuota": "10", "trafficQuotaUnit": "XB"}, {"trafficQuotaUnit": "TB"}, {"trafficQuota": 500},
 	} {
 		update(body, "admin", http.StatusBadRequest)
-		check("500", "GB")
+		check("1.5", "TB")
 	}
 	update(map[string]any{"trafficQuota": "0", "trafficQuotaUnit": "MB"}, "admin", http.StatusOK)
 	check("0", "MB")
