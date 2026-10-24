@@ -44,6 +44,7 @@ const state = {
   groups: [], nodes: [], group: "", query: "", status: "", sortKey: "", sortDirection: "desc", theme: initialTheme,
   columns: loadColumns(),
   actionMenuNode: "",
+  speedTestNode: "", speedTestStarting: false,
   token: localStorage.getItem("tz-admin-token") || "",
 };
 
@@ -226,7 +227,7 @@ function render() {
     button.classList.toggle("active", selected); button.setAttribute("aria-pressed", String(selected));
   });
   document.querySelectorAll(".daily-scope").forEach((element) => { element.textContent = state.group ? "北京时间 · 当前分组" : "北京时间 · 全部节点"; });
-  renderGroups(); renderNodes();
+  renderGroups(); renderNodes(); renderSpeedTest();
 }
 
 function renderGroups() {
@@ -330,6 +331,42 @@ async function resetNodeTraffic(id) {
   if (!confirm(`确定清空“${node.name}”的流量记录？\n今日、昨日、前天和累计上传/下载都将归零，无法撤销。下一次上报建立新基线，之后开始统计新增流量。`)) return;
   try { await api(`nodes/${id}/reset-traffic`, { method: "POST" }); await load(); toast("流量记录已清空"); }
   catch (error) { if (error.status !== 401) toast(error.message); }
+}
+
+function renderSpeedTest() {
+  if (!state.speedTestNode) return;
+  const node = state.nodes.find((item) => item.id === state.speedTestNode);
+  const job = node?.speedTest, pending = job && (job.status === "pending" || job.status === "running");
+  const supported = !!node?.speedTestSupported, isOnline = node && online(node);
+  $("#speedTestTitle").textContent = node ? `${node.name} · 测速` : "服务器已删除";
+  $("#speedTestStatus").textContent = !node ? "服务器已不存在" : pending ? (job.status === "pending" ? "等待节点接收测速指令…" : "节点测速中，完成后自动显示结果…") : !supported ? "请先通过操作菜单升级探针，或点击顶部“全部升级”" : !isOnline ? "节点离线，可查看上次结果，暂时无法发起测速" : job ? (job.status === "completed" ? "测速完成" : "测速失败或部分方向未完成，可稍后重试") : "尚未测速";
+  const finished = job && !pending;
+  $("#speedTestUpload").textContent = finished && !job.uploadError && !job.error ? megabits(job.uploadBps) : "—";
+  $("#speedTestDownload").textContent = finished && !job.downloadError && !job.error ? megabits(job.downloadBps) : "—";
+  $("#speedTestTime").textContent = job ? `${job.completedAt && !pending ? "完成" : "发起"}时间：${reportTime(job.completedAt && !pending ? job.completedAt : job.requestedAt)}（北京时间） · Cloudflare` : "";
+  $("#speedTestError").textContent = !pending && job ? [job.error, job.uploadError ? `上传：${job.uploadError}` : "", job.downloadError ? `下载：${job.downloadError}` : ""].filter(Boolean).join("；") : "";
+  const cooldown = job && Date.now() - Date.parse(job.requestedAt) < 60000;
+  $("#speedTestStart").disabled = !isOnline || !supported || !!pending || !!cooldown || state.speedTestStarting;
+  $("#speedTestStart").textContent = pending || state.speedTestStarting ? "测速中…" : cooldown ? "请间隔 1 分钟再测" : job ? "重新测速" : "开始测速";
+}
+
+function openSpeedTest(id) {
+  state.speedTestNode = id;
+  renderSpeedTest();
+  $("#speedTestDialog").showModal();
+}
+
+async function startSpeedTest() {
+  const node = state.nodes.find((item) => item.id === state.speedTestNode);
+  if (!node || state.speedTestStarting || $("#speedTestStart").disabled) return;
+  if (!confirm(`确定对“${node.name}”执行测速？\n节点将连接 Cloudflare，最多消耗约 128 MiB 有效载荷（另有协议开销），可能影响正常业务带宽，流量正常计入统计。`)) return;
+  state.speedTestStarting = true; renderSpeedTest();
+  try {
+    const result = await api(`nodes/${node.id}/speedtest`, { method: "POST" });
+    node.speedTest = result.speedTest;
+    await load();
+  } catch (error) { if (error.status !== 401) toast(error.message); }
+  finally { state.speedTestStarting = false; renderSpeedTest(); }
 }
 
 function openEntityForm(kind, item = null) {
@@ -497,6 +534,7 @@ $("#nodeActionMenu").onclick = (event) => {
   const button = event.target.closest("[data-menu-action]"); if (!button || button.disabled) return;
   const id = state.actionMenuNode, action = button.dataset.menuAction; closeNodeActionMenu();
   if (action === "upgrade") upgradeNode(id);
+  else if (action === "speedtest") openSpeedTest(id);
   else if (action === "reboot" || action === "shutdown") powerNode(id, action);
   else if (action === "reset-traffic") resetNodeTraffic(id);
   else if (action === "delete") deleteNode(id);
@@ -531,6 +569,9 @@ $("#installAgentBtn").onclick = openInstallCommand; $("#emptyInstallBtn").onclic
 $("#addGroupBtn").onclick = () => openEntityForm("group"); $("#tokenBtn").onclick = () => state.token ? openChangeToken() : openToken();
 $("#search").oninput = (event) => { state.query = event.target.value.trim().toLowerCase(); renderNodes(); };
 $("#upgradeAllBtn").onclick = upgradeAllNodes;
+$("#speedTestStart").onclick = startSpeedTest;
+$("#speedTestClose").onclick = $("#speedTestDone").onclick = () => $("#speedTestDialog").close();
+$("#speedTestDialog").addEventListener("close", () => { state.speedTestNode = ""; });
 $("#copyInstallCommand").onclick = () => copyText($("#installCommand").textContent).then(() => toast("安装命令已复制")).catch((error) => toast(error.message));
 $("#copyUninstallCommand").onclick = () => copyText($("#uninstallCommand").textContent).then(() => toast("卸载命令已复制")).catch((error) => toast(error.message));
 $("#commandDone").onclick = () => $("#commandDialog").close();

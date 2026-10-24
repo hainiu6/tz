@@ -196,6 +196,16 @@ html[data-theme="light"] .table-wrap #nodeRows .traffic-quota-cell .quota-remain
 .node-editor .field{margin-top:0}
 .node-editor .field textarea{min-height:96px;height:110px}
 .node-editor .server-options{max-height:min(180px,30dvh)}
+#speedTestDialog{width:min(600px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto}
+.speedtest-card{padding:22px}.speedtest-card h2{overflow-wrap:anywhere}
+.speedtest-hint{font-size:12px;line-height:1.6;color:var(--muted)}
+.speedtest-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:18px 0}
+.speedtest-results span{display:block;color:var(--muted);font-size:12px}
+.speedtest-results strong{display:block;margin-top:7px;font-size:24px;overflow-wrap:anywhere}
+.speedtest-error{font-size:12px;color:var(--danger);line-height:1.6;overflow-wrap:anywhere}
+.speedtest-card .modal-actions{position:sticky;bottom:-22px;background:var(--panel);padding:12px 0;margin:10px 0 -10px}
+.speedtest-card .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+@media(max-width:480px){.speedtest-card{padding:16px}.speedtest-results strong{font-size:20px}.speedtest-card .modal-actions{bottom:-16px}}
 @media(max-width:680px){
   #formDialog.node-editor{width:calc(100vw - 16px)}
   .node-editor #formFields{grid-template-columns:1fr;gap:16px}

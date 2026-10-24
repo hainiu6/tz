@@ -28,37 +28,39 @@ type Metrics struct {
 }
 
 type Node struct {
-	ID                         string    `json:"id"`
-	Name                       string    `json:"name"`
-	Note                       string    `json:"note,omitempty"`
-	ExpiresAt                  string    `json:"expiresAt,omitempty"`
-	TrafficQuota               string    `json:"trafficQuota,omitempty"`
-	TrafficQuotaUnit           string    `json:"trafficQuotaUnit,omitempty"`
-	TrafficExhausted           bool      `json:"trafficExhausted,omitempty"`
-	IP                         string    `json:"ip"`
-	GroupIDs                   []string  `json:"groupIds"`
-	GroupID                    string    `json:"groupId,omitempty"` // legacy API compatibility
-	Sort                       int       `json:"sort"`
-	AgentToken                 string    `json:"agentToken,omitempty"`
-	Version                    string    `json:"version"`
-	LastSeen                   time.Time `json:"lastSeen"`
-	UpgradeRequested           bool      `json:"upgradeRequested,omitempty"`
-	PowerRequested             string    `json:"powerRequested,omitempty"`
-	PowerRequestedAt           time.Time `json:"powerRequestedAt,omitempty"`
-	TrafficDate                string    `json:"trafficDate"`
-	TodayUpload                uint64    `json:"todayUpload"`
-	TodayDownload              uint64    `json:"todayDownload"`
-	YesterdayUpload            uint64    `json:"yesterdayUpload"`
-	YesterdayDownload          uint64    `json:"yesterdayDownload"`
-	DayBeforeYesterdayUpload   uint64    `json:"dayBeforeYesterdayUpload"`
-	DayBeforeYesterdayDownload uint64    `json:"dayBeforeYesterdayDownload"`
-	UploadBaseline             uint64    `json:"uploadBaseline"`
-	DownloadBaseline           uint64    `json:"downloadBaseline"`
-	BaselineReady              bool      `json:"baselineReady"`
-	TrafficResetAt             time.Time `json:"trafficResetAt,omitempty"`
-	TrafficResetPending        bool      `json:"trafficResetPending,omitempty"`
-	UploadSinceReset           uint64    `json:"uploadSinceReset,omitempty"`
-	DownloadSinceReset         uint64    `json:"downloadSinceReset,omitempty"`
+	ID                         string     `json:"id"`
+	Name                       string     `json:"name"`
+	Note                       string     `json:"note,omitempty"`
+	ExpiresAt                  string     `json:"expiresAt,omitempty"`
+	TrafficQuota               string     `json:"trafficQuota,omitempty"`
+	TrafficQuotaUnit           string     `json:"trafficQuotaUnit,omitempty"`
+	TrafficExhausted           bool       `json:"trafficExhausted,omitempty"`
+	SpeedTestSupported         bool       `json:"speedTestSupported,omitempty"`
+	SpeedTest                  *SpeedTest `json:"speedTest,omitempty"`
+	IP                         string     `json:"ip"`
+	GroupIDs                   []string   `json:"groupIds"`
+	GroupID                    string     `json:"groupId,omitempty"` // legacy API compatibility
+	Sort                       int        `json:"sort"`
+	AgentToken                 string     `json:"agentToken,omitempty"`
+	Version                    string     `json:"version"`
+	LastSeen                   time.Time  `json:"lastSeen"`
+	UpgradeRequested           bool       `json:"upgradeRequested,omitempty"`
+	PowerRequested             string     `json:"powerRequested,omitempty"`
+	PowerRequestedAt           time.Time  `json:"powerRequestedAt,omitempty"`
+	TrafficDate                string     `json:"trafficDate"`
+	TodayUpload                uint64     `json:"todayUpload"`
+	TodayDownload              uint64     `json:"todayDownload"`
+	YesterdayUpload            uint64     `json:"yesterdayUpload"`
+	YesterdayDownload          uint64     `json:"yesterdayDownload"`
+	DayBeforeYesterdayUpload   uint64     `json:"dayBeforeYesterdayUpload"`
+	DayBeforeYesterdayDownload uint64     `json:"dayBeforeYesterdayDownload"`
+	UploadBaseline             uint64     `json:"uploadBaseline"`
+	DownloadBaseline           uint64     `json:"downloadBaseline"`
+	BaselineReady              bool       `json:"baselineReady"`
+	TrafficResetAt             time.Time  `json:"trafficResetAt,omitempty"`
+	TrafficResetPending        bool       `json:"trafficResetPending,omitempty"`
+	UploadSinceReset           uint64     `json:"uploadSinceReset,omitempty"`
+	DownloadSinceReset         uint64     `json:"downloadSinceReset,omitempty"`
 	Metrics
 }
 
@@ -178,6 +180,7 @@ func (s *Store) Snapshot() ([]Group, []Node) {
 	nodes := append([]Node{}, s.data.Nodes...)
 	now := s.now()
 	for i := range nodes {
+		nodes[i].SpeedTest = speedTestView(nodes[i].SpeedTest, now)
 		nodes[i].rollTrafficDay(now)
 		if !nodes[i].TrafficResetAt.IsZero() {
 			nodes[i].TotalUpload, nodes[i].TotalDownload = nodes[i].UploadSinceReset, nodes[i].DownloadSinceReset
@@ -344,15 +347,16 @@ func (s *Store) Report(agentToken, ip, version string, metrics Metrics) (bool, e
 }
 
 type NodeCommands struct {
-	Upgrade bool   `json:"upgrade"`
-	Power   string `json:"power,omitempty"`
+	Upgrade     bool   `json:"upgrade"`
+	Power       string `json:"power,omitempty"`
+	SpeedTestID string `json:"speedTestId,omitempty"`
 }
 
 var ErrNodeOffline = errors.New("node offline")
 var ErrPowerPending = errors.New("power command already pending")
 var ErrInvalidPowerAction = errors.New("invalid power action")
 
-func (s *Store) ReportCommands(agentToken, ip, version string, metrics Metrics, powerSupported bool) (NodeCommands, error) {
+func (s *Store) ReportCommands(agentToken, ip, version string, metrics Metrics, powerSupported bool, speed ...SpeedTestReport) (NodeCommands, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, removed := range s.data.RemovedNodes {
@@ -363,6 +367,7 @@ func (s *Store) ReportCommands(agentToken, ip, version string, metrics Metrics, 
 	for i := range s.data.Nodes {
 		n := &s.data.Nodes[i]
 		if agentToken != "" && n.AgentToken == agentToken {
+			n.applySpeedTestReport(speed, s.now())
 			n.applyReport(ip, version, metrics, s.now())
 			commands := n.takeCommands(powerSupported, s.now())
 			return commands, s.saveLocked()
@@ -378,7 +383,7 @@ func (s *Store) AutoReport(nodeID, name, ip, version string, metrics Metrics) (b
 	return commands.Upgrade, err
 }
 
-func (s *Store) AutoReportCommands(nodeID, name, ip, version string, metrics Metrics, powerSupported bool) (NodeCommands, error) {
+func (s *Store) AutoReportCommands(nodeID, name, ip, version string, metrics Metrics, powerSupported bool, speed ...SpeedTestReport) (NodeCommands, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, removed := range s.data.RemovedNodes {
@@ -389,6 +394,7 @@ func (s *Store) AutoReportCommands(nodeID, name, ip, version string, metrics Met
 	for i := range s.data.Nodes {
 		n := &s.data.Nodes[i]
 		if n.ID == nodeID {
+			n.applySpeedTestReport(speed, s.now())
 			if n.Name == "" {
 				n.Name = ip
 			}
@@ -398,6 +404,7 @@ func (s *Store) AutoReportCommands(nodeID, name, ip, version string, metrics Met
 		}
 	}
 	n := Node{ID: nodeID, Name: ip, GroupIDs: []string{}, Sort: 0}
+	n.applySpeedTestReport(speed, s.now())
 	n.applyReport(ip, version, metrics, s.now())
 	s.data.Nodes = append(s.data.Nodes, n)
 	return NodeCommands{}, s.saveLocked()
@@ -417,6 +424,12 @@ func (n *Node) takeCommands(powerSupported bool, now time.Time) NodeCommands {
 	}
 	upgrade := n.UpgradeRequested
 	n.UpgradeRequested = false
+	if !upgrade && n.SpeedTestSupported && n.SpeedTest != nil && n.SpeedTest.Status == "pending" {
+		job := *n.SpeedTest
+		job.Status = "running"
+		n.SpeedTest = &job
+		return NodeCommands{SpeedTestID: job.ID}
+	}
 	return NodeCommands{Upgrade: upgrade}
 }
 

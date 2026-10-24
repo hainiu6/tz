@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/panhui/tz/internal/assets"
+	"github.com/panhui/tz/internal/store"
 )
 
 var version = "dev"
@@ -73,12 +74,13 @@ func main() {
 	client := &http.Client{Timeout: 10 * time.Second}
 	prevNet, _ := readNetwork()
 	var lastUpgrade time.Time
+	speedRunner := &speedTestRunner{}
 	for {
 		m, currentNet, err := collect(prevNet)
 		if err != nil {
 			log.Printf("采集失败：%v", err)
 		} else {
-			commands, err := report(client, *panel, *token, *nodeID, *nodeName, m)
+			commands, err := report(client, *panel, *token, *nodeID, *nodeName, m, speedRunner.snapshot())
 			if err != nil {
 				log.Printf("上报失败：%v", err)
 			} else if commands.Uninstall {
@@ -93,6 +95,8 @@ func main() {
 				lastUpgrade = time.Now()
 				log.Printf("收到升级指令")
 				go selfUpgrade(*panel, *token)
+			} else if commands.SpeedTestID != "" {
+				speedRunner.start(commands.SpeedTestID)
 			}
 			prevNet = currentNet
 		}
@@ -251,20 +255,27 @@ func defaultNodeID() string {
 }
 
 type agentCommands struct {
-	Upgrade   bool   `json:"upgrade"`
-	Uninstall bool   `json:"uninstall"`
-	Power     string `json:"power"`
+	Upgrade     bool   `json:"upgrade"`
+	Uninstall   bool   `json:"uninstall"`
+	Power       string `json:"power"`
+	SpeedTestID string `json:"speedTestId"`
 }
 
-func report(client *http.Client, panel, token, nodeID, nodeName string, m metrics) (agentCommands, error) {
+func report(client *http.Client, panel, token, nodeID, nodeName string, m metrics, speedResult ...*store.SpeedTestResult) (agentCommands, error) {
+	var result *store.SpeedTestResult
+	if len(speedResult) > 0 {
+		result = speedResult[0]
+	}
 	payload := struct {
-		NodeID             string `json:"nodeId"`
-		Name               string `json:"name"`
-		Version            string `json:"version"`
-		UninstallSupported bool   `json:"uninstallSupported"`
-		PowerSupported     bool   `json:"powerSupported"`
+		NodeID             string                 `json:"nodeId"`
+		Name               string                 `json:"name"`
+		Version            string                 `json:"version"`
+		UninstallSupported bool                   `json:"uninstallSupported"`
+		PowerSupported     bool                   `json:"powerSupported"`
+		SpeedTestSupported bool                   `json:"speedTestSupported"`
+		SpeedTestResult    *store.SpeedTestResult `json:"speedTestResult,omitempty"`
 		metrics
-	}{nodeID, nodeName, version, true, true, m}
+	}{nodeID, nodeName, version, true, true, true, result, m}
 	b, _ := json.Marshal(payload)
 	req, _ := http.NewRequest(http.MethodPost, panel+"/api/report", bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")

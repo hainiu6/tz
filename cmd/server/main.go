@@ -120,6 +120,31 @@ func (s *server) api(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
+	case len(parts) == 3 && parts[0] == "nodes" && parts[2] == "speedtest":
+		if r.Method == http.MethodGet {
+			job, err := s.store.NodeSpeedTest(parts[1])
+			if err != nil {
+				respondErr(w, err)
+				return
+			}
+			writeJSON(w, map[string]any{"speedTest": job})
+		} else if r.Method == http.MethodPost {
+			job, err := s.store.RequestSpeedTest(parts[1])
+			switch {
+			case errors.Is(err, store.ErrNodeOffline):
+				jsonError(w, "服务器离线，无法测速", http.StatusConflict)
+			case errors.Is(err, store.ErrSpeedTestUnsupported), errors.Is(err, store.ErrSpeedTestBusy):
+				jsonError(w, err.Error(), http.StatusConflict)
+			case errors.Is(err, os.ErrNotExist):
+				respondErr(w, err)
+			case err != nil:
+				jsonError(w, "保存测速任务失败", http.StatusInternalServerError)
+			default:
+				writeJSON(w, map[string]any{"speedTest": job})
+			}
+		} else {
+			jsonError(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
 	case path == "dashboard" && r.Method == http.MethodGet:
 		groups, nodes := s.store.Snapshot()
 		writeJSON(w, map[string]any{"groups": groups, "nodes": nodes, "serverTime": time.Now().UTC()})
@@ -324,11 +349,13 @@ func (s *server) report(w http.ResponseWriter, r *http.Request) {
 	}
 	token := r.Header.Get("X-Agent-Token")
 	var in struct {
-		NodeID             string `json:"nodeId"`
-		Name               string `json:"name"`
-		Version            string `json:"version"`
-		UninstallSupported bool   `json:"uninstallSupported"`
-		PowerSupported     bool   `json:"powerSupported"`
+		NodeID             string                 `json:"nodeId"`
+		Name               string                 `json:"name"`
+		Version            string                 `json:"version"`
+		UninstallSupported bool                   `json:"uninstallSupported"`
+		PowerSupported     bool                   `json:"powerSupported"`
+		SpeedTestSupported bool                   `json:"speedTestSupported"`
+		SpeedTestResult    *store.SpeedTestResult `json:"speedTestResult"`
 		store.Metrics
 	}
 	if !decode(w, r, &in) {
@@ -350,10 +377,10 @@ func (s *server) report(w http.ResponseWriter, r *http.Request) {
 		if len(name) > 60 {
 			name = name[:60]
 		}
-		commands, err = s.store.AutoReportCommands(in.NodeID, name, host, in.Version, in.Metrics, in.PowerSupported)
+		commands, err = s.store.AutoReportCommands(in.NodeID, name, host, in.Version, in.Metrics, in.PowerSupported, store.SpeedTestReport{Supported: in.SpeedTestSupported, Result: in.SpeedTestResult})
 	} else {
 		// Keep existing per-node tokens working during migration.
-		commands, err = s.store.ReportCommands(token, host, in.Version, in.Metrics, in.PowerSupported)
+		commands, err = s.store.ReportCommands(token, host, in.Version, in.Metrics, in.PowerSupported, store.SpeedTestReport{Supported: in.SpeedTestSupported, Result: in.SpeedTestResult})
 	}
 	if errors.Is(err, store.ErrRemovalPending) {
 		writeJSON(w, map[string]any{"ok": true, "uninstall": in.UninstallSupported, "upgrade": !in.UninstallSupported})
@@ -363,7 +390,7 @@ func (s *server) report(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "探针令牌无效", http.StatusUnauthorized)
 		return
 	}
-	writeJSON(w, map[string]any{"ok": true, "upgrade": commands.Upgrade, "power": commands.Power})
+	writeJSON(w, map[string]any{"ok": true, "upgrade": commands.Upgrade, "power": commands.Power, "speedTestId": commands.SpeedTestID})
 }
 
 func validNodeID(id string) bool {
