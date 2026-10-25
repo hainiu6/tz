@@ -12,7 +12,7 @@ const defaultColumns = [
   { id: "yesterdayUpload", label: "昨日上传", width: 74 }, { id: "yesterdayDownload", label: "昨日下载", width: 74 },
   { id: "dayBeforeYesterdayUpload", label: "前天上传", width: 74 }, { id: "dayBeforeYesterdayDownload", label: "前天下载", width: 74 },
   { id: "totalUpload", label: "总上传", width: 74 }, { id: "totalDownload", label: "总下载", width: 74 },
-  { id: "uptime", label: "运行时间", width: 82 }, { id: "cpu", label: "CPU", width: 64 },
+  { id: "uptime", label: "运行时间", width: 136 }, { id: "cpu", label: "CPU", width: 64 },
   { id: "memory", label: "内存", width: 64 }, { id: "disk", label: "存储", width: 64 },
   { id: "actions", label: "操作", width: 82 },
 ];
@@ -75,6 +75,14 @@ function bytes(value, speed = false) {
   return `${size.toFixed(digits)} ${units[unit]}${speed ? "/s" : ""}`;
 }
 
+function quantityHTML(formatted, unitClass) {
+  const separator = formatted.lastIndexOf(" ");
+  if (separator < 0) return escapeHTML(formatted);
+  return `${escapeHTML(formatted.slice(0, separator))} <span class="quantity-unit ${unitClass}">${escapeHTML(formatted.slice(separator + 1))}</span>`;
+}
+
+const bytesHTML = (value) => quantityHTML(bytes(value), "traffic-unit");
+
 function remainingHTML(number, unit, prefix = "剩") {
   return `<span class="remaining-label">${escapeHTML(prefix)}</span> <span class="remaining-number">${escapeHTML(number)}</span> <span class="remaining-unit">${escapeHTML(unit)}</span>`;
 }
@@ -100,6 +108,8 @@ function speedHTML(value) {
   return `<strong class="speed-number">${number}</strong> <span class="speed-unit">${unit}</span>`;
 }
 
+const megabitsHTML = (value) => quantityHTML(megabits(value), "speed-unit");
+
 function uptime(value) {
   if (value === undefined || value === null) return "—";
   const totalHours = Math.floor(Math.max(0, value) / 3600), days = Math.floor(totalHours / 24), hours = totalHours % 24;
@@ -119,9 +129,13 @@ function reportTime(lastSeen) {
 function expiryInfo(value) {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp) || timestamp <= 0) return null;
-  const day = 86400000, remaining = timestamp - Date.now();
-  const label = remaining <= 0 ? "已到期" : remaining < day ? "剩不足1天" : `剩${Math.floor(remaining / day)}天`;
-  const html = remaining <= 0 ? '<span class="remaining-label">已到期</span>' : remainingHTML(remaining < day ? 1 : Math.floor(remaining / day), "天", remaining < day ? "剩不足" : "剩");
+  const day = 86400000, hour = 3600000, remaining = timestamp - Date.now();
+  const unit = remaining < 2 * day ? "小时" : "天";
+  const count = Math.floor(remaining / (unit === "小时" ? hour : day));
+  const prefix = remaining > 0 && remaining < hour ? "剩不足" : "剩";
+  const number = remaining > 0 && remaining < hour ? 1 : count;
+  const label = remaining <= 0 ? "已到期" : `${prefix}${number}${unit}`;
+  const html = remaining <= 0 ? '<span class="remaining-label">已到期</span>' : remainingHTML(number, unit, prefix);
   return { date: reportTime(value).slice(0, 16), label, html, urgent: remaining < 2 * day };
 }
 
@@ -218,14 +232,14 @@ function render() {
   const downloadSpeed = active.reduce((sum, node) => sum + node.downloadSpeed, 0);
   const totalUpload = scoped.reduce((sum, node) => sum + (node.totalUpload || 0), 0);
   const totalDownload = scoped.reduce((sum, node) => sum + (node.totalDownload || 0), 0);
-  $("#sumUpSpeed").textContent = megabits(uploadSpeed); $("#sumDownSpeed").textContent = megabits(downloadSpeed);
-  $("#sumTrafficSub").textContent = `上传总流量 ${bytes(totalUpload)} · 下载总流量 ${bytes(totalDownload)}`;
-  $("#sumTodayUpload").textContent = bytes(scoped.reduce((sum, node) => sum + (node.todayUpload || 0), 0));
-  $("#sumTodayDownload").textContent = bytes(scoped.reduce((sum, node) => sum + (node.todayDownload || 0), 0));
-  $("#sumYesterdayUpload").textContent = bytes(scoped.reduce((sum, node) => sum + (node.yesterdayUpload || 0), 0));
-  $("#sumYesterdayDownload").textContent = bytes(scoped.reduce((sum, node) => sum + (node.yesterdayDownload || 0), 0));
-  $("#sumDayBeforeYesterdayUpload").textContent = bytes(scoped.reduce((sum, node) => sum + (node.dayBeforeYesterdayUpload || 0), 0));
-  $("#sumDayBeforeYesterdayDownload").textContent = bytes(scoped.reduce((sum, node) => sum + (node.dayBeforeYesterdayDownload || 0), 0));
+  $("#sumUpSpeed").innerHTML = megabitsHTML(uploadSpeed); $("#sumDownSpeed").innerHTML = megabitsHTML(downloadSpeed);
+  $("#sumTrafficSub").innerHTML = `上传总流量 ${bytesHTML(totalUpload)} · 下载总流量 ${bytesHTML(totalDownload)}`;
+  $("#sumTodayUpload").innerHTML = bytesHTML(scoped.reduce((sum, node) => sum + (node.todayUpload || 0), 0));
+  $("#sumTodayDownload").innerHTML = bytesHTML(scoped.reduce((sum, node) => sum + (node.todayDownload || 0), 0));
+  $("#sumYesterdayUpload").innerHTML = bytesHTML(scoped.reduce((sum, node) => sum + (node.yesterdayUpload || 0), 0));
+  $("#sumYesterdayDownload").innerHTML = bytesHTML(scoped.reduce((sum, node) => sum + (node.yesterdayDownload || 0), 0));
+  $("#sumDayBeforeYesterdayUpload").innerHTML = bytesHTML(scoped.reduce((sum, node) => sum + (node.dayBeforeYesterdayUpload || 0), 0));
+  $("#sumDayBeforeYesterdayDownload").innerHTML = bytesHTML(scoped.reduce((sum, node) => sum + (node.dayBeforeYesterdayDownload || 0), 0));
   $("#onlineCount").textContent = active.length;
   $("#offlineCount").textContent = scoped.length - active.length;
   document.querySelectorAll("[data-status]").forEach((button) => {
@@ -270,25 +284,24 @@ function renderNodes() {
   $("#nodeRows").innerHTML = nodes.map((node) => {
     const isOnline = online(node), memoryPercent = percent(node.memoryUsed, node.memoryTotal), diskPercent = percent(node.diskUsed, node.diskTotal);
     const lastSeen = reportTime(node.lastSeen);
-    const statusTitle = lastSeen === "时间未知" ? "未收到有效上报，离线时间未知" : `${isOnline ? "最后上报" : "离线时间"}：${lastSeen}（北京时间${isOnline ? "" : "，按最后上报记录"}）`;
     const expiry = expiryInfo(node.expiresAt);
-    return `<tr class="${isOnline ? "" : "node-offline"}"${isOnline ? "" : ` title="${escapeHTML(statusTitle)}"`}>
+    return `<tr class="${isOnline ? "" : "node-offline"}">
       <td class="sort-cell" data-column="sort" data-label="排序">${node.sort}</td>
-      <td class="server-cell" data-column="server"><div class="server-name"><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="${isOnline ? "" : `${escapeHTML(statusTitle)}；`}点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span>${isOnline ? "" : `<span class="server-status" title="${escapeHTML(statusTitle)}"> · 离线</span>`}</small></button></div></td>
-      <td class="expiry-cell" data-column="expiresAt" data-label="到期时间"><div class="node-dates"><span class="expiry-time${expiry?.urgent ? " expiring" : ""}" title="到期时间（北京时间）${isOnline ? "" : `；${escapeHTML(statusTitle)}`}">${expiry ? `<span class="expiry-date">${expiry.date}</span><small class="expiry-remaining">${expiry.html}</small>` : ""}</span></div></td>
+      <td class="server-cell" data-column="server"><div class="server-name"><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span>${isOnline ? "" : '<span class="server-status"> · 离线</span>'}</small></button></div></td>
+      <td class="expiry-cell" data-column="expiresAt" data-label="到期时间"><div class="node-dates"><span class="expiry-time${expiry?.urgent ? " expiring" : ""}" title="到期时间（北京时间）">${expiry ? `<span class="expiry-date">${expiry.date}</span><small class="expiry-remaining">${expiry.html}</small>` : ""}</span></div></td>
       <td class="traffic-quota-cell" data-column="trafficQuota" data-label="流量">${trafficQuotaHTML(node)}</td>
       <td class="note-cell" data-column="note" data-label="备注"><span title="${escapeHTML(node.note || "")}">${escapeHTML(node.note || "—")}</span></td>
       <td class="speed up" data-column="uploadSpeed" data-label="上传速度">↑ ${isOnline ? speedHTML(node.uploadSpeed) : "—"}</td>
       <td class="speed down" data-column="downloadSpeed" data-label="下载速度">↓ ${isOnline ? speedHTML(node.downloadSpeed) : "—"}</td>
-      <td class="traffic-cell" data-column="todayUpload" data-label="今日上传">${bytes(node.todayUpload || 0)}</td>
-      <td class="traffic-cell" data-column="todayDownload" data-label="今日下载">${bytes(node.todayDownload || 0)}</td>
-      <td class="traffic-cell" data-column="yesterdayUpload" data-label="昨日上传">${bytes(node.yesterdayUpload || 0)}</td>
-      <td class="traffic-cell" data-column="yesterdayDownload" data-label="昨日下载">${bytes(node.yesterdayDownload || 0)}</td>
-      <td class="traffic-cell" data-column="dayBeforeYesterdayUpload" data-label="前天上传">${bytes(node.dayBeforeYesterdayUpload || 0)}</td>
-      <td class="traffic-cell" data-column="dayBeforeYesterdayDownload" data-label="前天下载">${bytes(node.dayBeforeYesterdayDownload || 0)}</td>
-      <td class="traffic-cell" data-column="totalUpload" data-label="总上传">${bytes(node.totalUpload)}</td>
-      <td class="traffic-cell" data-column="totalDownload" data-label="总下载">${bytes(node.totalDownload)}</td>
-      <td class="uptime-cell" data-column="uptime" data-label="运行时间">${uptime(node.uptime)}</td>
+      <td class="traffic-cell" data-column="todayUpload" data-label="今日上传">${bytesHTML(node.todayUpload || 0)}</td>
+      <td class="traffic-cell" data-column="todayDownload" data-label="今日下载">${bytesHTML(node.todayDownload || 0)}</td>
+      <td class="traffic-cell" data-column="yesterdayUpload" data-label="昨日上传">${bytesHTML(node.yesterdayUpload || 0)}</td>
+      <td class="traffic-cell" data-column="yesterdayDownload" data-label="昨日下载">${bytesHTML(node.yesterdayDownload || 0)}</td>
+      <td class="traffic-cell" data-column="dayBeforeYesterdayUpload" data-label="前天上传">${bytesHTML(node.dayBeforeYesterdayUpload || 0)}</td>
+      <td class="traffic-cell" data-column="dayBeforeYesterdayDownload" data-label="前天下载">${bytesHTML(node.dayBeforeYesterdayDownload || 0)}</td>
+      <td class="traffic-cell" data-column="totalUpload" data-label="总上传">${bytesHTML(node.totalUpload)}</td>
+      <td class="traffic-cell" data-column="totalDownload" data-label="总下载">${bytesHTML(node.totalDownload)}</td>
+      <td class="uptime-cell" data-column="uptime" data-label="运行时间"><div class="node-uptime"><span>${uptime(node.uptime)}</span>${isOnline ? "" : `<small class="offline-time" aria-label="离线时间（北京时间，按最后上报记录）">${lastSeen}</small>`}</div></td>
       <td class="metric-cell" data-column="cpu" data-label="CPU"><div class="metric"><span class="value">${isOnline ? `${node.cpu.toFixed(1)}%` : "—"}</span><progress class="bar" max="100" value="${isOnline ? Math.min(100, node.cpu) : 0}" aria-label="CPU 使用率"></progress></div></td>
       <td class="metric-cell" data-column="memory" data-label="内存"><div class="metric"><span class="value">${isOnline ? `${memoryPercent.toFixed(1)}%` : "—"}</span><progress class="bar" max="100" value="${isOnline ? memoryPercent : 0}" aria-label="内存使用率"></progress></div></td>
       <td class="metric-cell" data-column="disk" data-label="存储"><div class="metric"><span class="value">${isOnline ? `${diskPercent.toFixed(1)}%` : "—"}</span><progress class="bar" max="100" value="${isOnline ? diskPercent : 0}" aria-label="存储使用率"></progress></div></td>
@@ -344,14 +357,14 @@ function renderSpeedTest() {
   const node = state.nodes.find((item) => item.id === state.speedTestNode);
   const job = node?.speedTest, pending = job && (job.status === "pending" || job.status === "running");
   const supported = !!node?.speedTestSupported, isOnline = node && online(node);
-  $("#speedTestCurrentUpload").textContent = isOnline ? megabits(node.uploadSpeed || 0) : "—";
-  $("#speedTestCurrentDownload").textContent = isOnline ? megabits(node.downloadSpeed || 0) : "—";
+  $("#speedTestCurrentUpload").innerHTML = isOnline ? megabitsHTML(node.uploadSpeed || 0) : "—";
+  $("#speedTestCurrentDownload").innerHTML = isOnline ? megabitsHTML(node.downloadSpeed || 0) : "—";
   $("#speedTestLiveHint").textContent = isOnline ? "随节点上报自动刷新" : "节点离线，实时速度不可用";
   $("#speedTestTitle").textContent = node ? `${node.name} · 测速` : "服务器已删除";
   $("#speedTestStatus").textContent = !node ? "服务器已不存在" : pending ? (job.status === "pending" ? "等待节点接收测速指令…" : "节点测速中，完成后自动显示结果…") : !supported ? "请先通过操作菜单升级探针，或点击顶部“全部升级”" : !isOnline ? "节点离线，可查看上次结果，暂时无法发起测速" : job ? (job.status === "completed" ? "测速完成" : "测速失败或部分方向未完成，可稍后重试") : "尚未测速";
   const finished = job && !pending;
-  $("#speedTestUpload").textContent = finished && !job.uploadError && !job.error ? megabits(job.uploadBps) : "—";
-  $("#speedTestDownload").textContent = finished && !job.downloadError && !job.error ? megabits(job.downloadBps) : "—";
+  $("#speedTestUpload").innerHTML = finished && !job.uploadError && !job.error ? megabitsHTML(job.uploadBps) : "—";
+  $("#speedTestDownload").innerHTML = finished && !job.downloadError && !job.error ? megabitsHTML(job.downloadBps) : "—";
   $("#speedTestTime").textContent = job ? `${job.completedAt && !pending ? "完成" : "发起"}时间：${reportTime(job.completedAt && !pending ? job.completedAt : job.requestedAt)}（北京时间） · Cloudflare` : "";
   $("#speedTestError").textContent = !pending && job ? [job.error, job.uploadError ? `上传：${job.uploadError}` : "", job.downloadError ? `下载：${job.downloadError}` : ""].filter(Boolean).join("；") : "";
   const cooldown = job && Date.now() - Date.parse(job.requestedAt) < 60000;

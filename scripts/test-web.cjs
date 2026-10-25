@@ -15,18 +15,23 @@ vm.runInContext([
   source.slice(source.indexOf('function reportTime('), source.indexOf('function parseExpiryInput(')),
   'Date.now = () => Date.parse("2026-10-24T12:00:00Z"); this.formatExpiry = expiryInfo;',
   'this.formatQuota = trafficQuotaHTML;',
+  'this.formatBytes = bytesHTML;',
 ].join('\n'), context);
 const render = context.formatQuota;
 const text = (node) => render(node).replace(/<[^>]*>/g, '');
 
 const elements = new Map();
 context.$ = (selector) => {
-  if (!elements.has(selector)) elements.set(selector, { textContent: '', disabled: false });
+  if (!elements.has(selector)) elements.set(selector, {
+    textContent: '', disabled: false, html: '',
+    get innerHTML() { return this.html; },
+    set innerHTML(value) { this.html = value; this.textContent = value.replace(/<[^>]*>/g, ''); },
+  });
   return elements.get(selector);
 };
 vm.runInContext([
   source.match(/^const online = .*;$/m)[0],
-  source.slice(source.indexOf('function megabits('), source.indexOf('function speedHTML(')),
+  source.slice(source.indexOf('function megabits('), source.indexOf('function uptime(')),
   source.slice(source.indexOf('function renderSpeedTest('), source.indexOf('function openSpeedTest(')),
   source.slice(source.indexOf('async function startSpeedTest('), source.indexOf('function openEntityForm(')),
   'this.renderSpeedDialog = renderSpeedTest; this.startSpeed = startSpeedTest;',
@@ -91,8 +96,11 @@ test('expiry dates use Beijing time to the minute and remaining full days', () =
 test('expiry warnings retain the less-than-two-day and expired boundaries', () => {
   for (const [date, label, urgent] of [
     ['2026-10-26T12:00:00Z', '剩2天', false],
-    ['2026-10-26T11:59:59Z', '剩1天', true],
-    ['2026-10-25T11:59:59Z', '剩不足1天', true],
+    ['2026-10-26T11:59:59Z', '剩47小时', true],
+    ['2026-10-25T12:00:00Z', '剩24小时', true],
+    ['2026-10-25T11:59:59Z', '剩23小时', true],
+    ['2026-10-24T13:00:00Z', '剩1小时', true],
+    ['2026-10-24T12:59:59Z', '剩不足1小时', true],
     ['2026-10-24T12:00:00Z', '已到期', true],
   ]) {
     const info = context.formatExpiry(date);
@@ -108,6 +116,13 @@ test('remaining text, values, and units have separate styling hooks', () => {
   const expiry = context.formatExpiry('2026-10-27T12:00:00Z');
   assert.match(expiry.html, /remaining-label">剩<\/span> <span class="remaining-number">3<\/span> <span class="remaining-unit">天/);
   assert.equal(context.formatExpiry('2026-10-24T12:00:00Z').html, '<span class="remaining-label">已到期</span>');
+  assert.match(context.formatExpiry('2026-10-26T00:00:00Z').html, /remaining-number">36<\/span> <span class="remaining-unit">小时/);
+});
+
+test('traffic formatting separates units and escapes HTML safely', () => {
+  assert.equal(context.formatBytes(1024), '1.00 <span class="quantity-unit traffic-unit">KB</span>');
+  assert.equal(context.formatBytes(undefined), '—');
+  assert.equal(context.quantityHTML('<script> 1 <img>', 'traffic-unit'), '&lt;script&gt; 1 <span class="quantity-unit traffic-unit">&lt;img&gt;</span>');
 });
 
 test('speed dialog separates live rates from saved benchmark results', () => {
