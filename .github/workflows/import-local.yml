@@ -1,0 +1,38 @@
+name: Import local TZ history
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/import-local.yml"]
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Restore and verify the exact local source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git bundle verify tz-hainiu3-migration.bundle
+          git fetch ./tz-hainiu3-migration.bundle main:refs/heads/migration-source
+          source_commit=$(git rev-parse migration-source)
+          source_tree=$(git rev-parse migration-source^{tree})
+          test "$source_commit" = "37191ea3dd67c10b0aafe10160a56dbab4f79acc"
+          test "$source_tree" = "d306ba15e0f674c7bd4c27b68ab63737f82eb01f"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          imported=$(printf '%s\n' 'Restore complete TZ source and Git history in hainiu3/tz' | git commit-tree "$source_tree" -p "$GITHUB_SHA" -p "$source_commit")
+          git checkout --detach "$imported"
+          test "$(git ls-files | wc -l | tr -d ' ')" = 42
+          test "$(git rev-parse HEAD^{tree})" = "$source_tree"
+          go test ./...
+          go vet ./...
+          node --test scripts/test-web.cjs
+          bash -n scripts/install-panel.sh internal/assets/scripts/install-agent.sh internal/assets/scripts/uninstall-agent.sh
+          git push origin HEAD:refs/heads/main
