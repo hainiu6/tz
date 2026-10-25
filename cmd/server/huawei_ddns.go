@@ -11,7 +11,7 @@ import (
 	dns "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/dns/v2"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/dns/v2/model"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/dns/v2/region"
-	"github.com/panhui/tz/internal/store"
+	"github.com/hainiu3/tz/internal/store"
 )
 
 type huaweiDNSClient interface {

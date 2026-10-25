@@ -1,4 +1,4 @@
-module github.com/panhui/tz
+module github.com/hainiu3/tz
 
 go 1.22
 
