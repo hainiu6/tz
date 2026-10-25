@@ -1,0 +1,16 @@
+services:
+  panel:
+    build: .
+    image: ghcr.io/hainiu3/tz-panel:latest
+    restart: unless-stopped
+    ports:
+      - "876:876"
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
+    environment:
+      TZ_ADMIN_TOKEN: "change-this-admin-token"
+    volumes:
+      - tz-data:/var/lib/tz
+
+volumes:
+  tz-data:
