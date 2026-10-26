@@ -287,7 +287,7 @@ function renderNodes() {
     const expiry = expiryInfo(node.expiresAt);
     return `<tr class="${isOnline ? "" : "node-offline"}">
       <td class="sort-cell" data-column="sort" data-label="排序">${node.sort}</td>
-      <td class="server-cell" data-column="server"><div class="server-name"><button class="server-copy" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"><strong>${escapeHTML(node.name)}</strong><small class="server-meta"><span class="server-ip">${escapeHTML(node.ip || "等待首次上报")}</span>${isOnline ? "" : '<span class="server-status"> · 离线</span>'}</small></button></div></td>
+      <td class="server-cell" data-column="server"><div class="server-name"><div class="server-identifiers"><button class="server-copy server-copy-name" data-copy-name="${escapeHTML(node.name)}" title="点击复制服务器名"><strong>${escapeHTML(node.name)}</strong></button><small class="server-meta"><button class="server-copy server-ip" data-copy-ip="${escapeHTML(node.ip)}" title="点击复制 IP"${node.ip ? "" : " disabled"}>${escapeHTML(node.ip || "等待首次上报")}</button>${isOnline ? "" : '<span class="server-status"> · 离线</span>'}</small></div></div></td>
       <td class="expiry-cell" data-column="expiresAt" data-label="到期时间"><div class="node-dates"><span class="expiry-time${expiry?.urgent ? " expiring" : ""}" title="到期时间（北京时间）">${expiry ? `<span class="expiry-date">${expiry.date}</span><small class="expiry-remaining">${expiry.html}</small>` : ""}</span></div></td>
       <td class="traffic-quota-cell" data-column="trafficQuota" data-label="流量">${trafficQuotaHTML(node)}</td>
       <td class="note-cell" data-column="note" data-label="备注"><span title="${escapeHTML(node.note || "")}">${escapeHTML(node.note || "—")}</span></td>
@@ -317,7 +317,10 @@ function renderNodes() {
     $("#nodeActionMenu button:not(:disabled)")?.focus();
   }; });
   syncNodeActionMenu();
-  document.querySelectorAll("[data-copy-ip]").forEach((button) => { button.onclick = () => copyText(button.dataset.copyIp).then(() => toast(`已复制 ${button.dataset.copyIp}`)).catch((error) => toast(error.message)); });
+  document.querySelectorAll("[data-copy-name], [data-copy-ip]").forEach((button) => { button.onclick = () => {
+    const value = button.dataset.copyName ?? button.dataset.copyIp;
+    copyText(value).then(() => toast(`已复制 ${value}`)).catch((error) => toast(error.message));
+  }; });
 }
 
 function closeNodeActionMenu() {

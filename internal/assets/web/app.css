@@ -83,7 +83,8 @@ html[data-theme="light"] .column-item{background:#f3f6f4}
 html[data-theme="light"] .table-wrap .speed.up,html[data-theme="light"] .table-wrap .speed.down{color:#24332c}
 html[data-theme="light"] .table-wrap .node-offline{background:#f3f3f3;filter:none}
 html[data-theme="light"] .table-wrap .node-offline td,html[data-theme="light"] .table-wrap .node-offline td *{color:#89928e!important}
-.note-cell span{display:block;max-width:220px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.note-cell span{display:block;max-width:220px;overflow:hidden;text-overflow:ellipsis;color:#fff}
+html[data-theme="light"] .note-cell span{color:var(--text)}
 .field textarea{width:100%;min-height:88px;resize:vertical;border:1px solid var(--line);background:#081310;color:var(--text);padding:12px 13px;border-radius:10px;font:inherit;line-height:1.5;outline:0}.field textarea:focus{border-color:#547a6c}
 html[data-theme="light"] .field textarea{background:#fff}
 @media(max-width:760px){.field textarea{font-size:16px}}
@@ -99,6 +100,11 @@ html[data-theme="light"] .field textarea{background:#fff}
 .server-name strong{font-size:13px;line-height:1.25}.server-name small{margin-top:1px;font-size:10px;line-height:1.25}
 .server-cell .server-name{width:170px;min-width:170px;max-width:170px}
 .server-copy{min-width:0;flex:1}
+.server-identifiers{min-width:0;flex:1}
+.server-copy-name{display:block;width:100%}
+.server-copy:focus-visible{outline:2px solid var(--lime);outline-offset:2px;border-radius:3px}
+.server-ip:hover:not(:disabled){text-decoration:underline;text-underline-offset:3px}
+.server-ip:disabled{cursor:default}
 .server-name .server-meta{display:flex;min-width:0;max-width:none;gap:3px}
 .server-meta .server-ip{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .server-meta .server-status{flex:none;white-space:nowrap}
