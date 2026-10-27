@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="轻量、实时的 Linux 服务器监控面板">
+  <title>TZ · 服务器监控</title>
+  <link rel="stylesheet" href="/app.css">
+	<link rel="stylesheet" href="/ddns.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" id="homeLink" href="/" aria-label="返回探针监控页面"><span class="brand-mark"><i></i><i></i><i></i></span><span>TZ</span><em>服务器监控</em></a>
+      <div class="top-actions"><span id="syncStatus" class="sync"><b></b>正在连接</span><label class="theme-control"><span>主题</span><select id="themeSelect" aria-label="主题"><option value="dark">暗色</option><option value="light">亮色</option></select></label><button class="btn ghost" id="ddnsNavBtn">DDNS</button><button class="btn ghost" id="tokenBtn">管理令牌</button><button class="btn primary" id="installAgentBtn"><span>↓</span> 安装探针</button></div>
+    </header>
+
+    <main id="dashboardPage">
+      <section class="overview" aria-label="流量总览">
+        <article class="stat paired"><h2>实时速度</h2><div class="stat-pair"><div><span>↑ 上传速度</span><strong id="sumUpSpeed">—</strong></div><div><span>↓ 下载速度</span><strong id="sumDownSpeed">—</strong></div></div><small id="sumTrafficSub">上传总流量 — · 下载总流量 —</small></article>
+        <article class="stat paired"><h2>今日流量</h2><div class="stat-pair"><div><span>↑ 今日上传总流量</span><strong id="sumTodayUpload">—</strong></div><div><span>↓ 今日下载总流量</span><strong id="sumTodayDownload">—</strong></div></div><small class="daily-scope">北京时间 · 全部节点</small></article>
+        <article class="stat paired"><h2>昨日流量</h2><div class="stat-pair"><div><span>↑ 昨日上传总流量</span><strong id="sumYesterdayUpload">—</strong></div><div><span>↓ 昨日下载总流量</span><strong id="sumYesterdayDownload">—</strong></div></div><small class="daily-scope">北京时间 · 全部节点</small></article>
+        <article class="stat paired"><h2>前天流量</h2><div class="stat-pair"><div><span>↑ 前天上传总流量</span><strong id="sumDayBeforeYesterdayUpload">—</strong></div><div><span>↓ 前天下载总流量</span><strong id="sumDayBeforeYesterdayDownload">—</strong></div></div><small class="daily-scope">北京时间 · 全部节点</small></article>
+      </section>
+
+      <section class="workspace">
+        <aside class="groups">
+          <div class="section-head"><h2>分组</h2><button class="icon-btn" id="addGroupBtn" aria-label="添加分组">＋</button></div>
+          <nav id="groupList"><button class="group active" data-group=""><span class="group-label"><i class="dot all"></i><span class="group-name">全部服务器</span></span><b>0</b></button></nav>
+          <div class="group-status"><button type="button" class="status-filter" data-status="online" aria-pressed="false" title="筛选在线服务器"><i class="dot online"></i><b id="onlineCount">0</b> 台在线</button><button type="button" class="status-filter" data-status="offline" aria-pressed="false" title="筛选离线服务器"><i class="dot offline"></i><b id="offlineCount">0</b> 台离线</button></div>
+        </aside>
+
+        <section class="servers">
+          <div class="section-head list-head"><div><h2 id="listTitle">全部服务器</h2><p id="listMeta">0 台服务器</p></div><div class="list-tools"><div class="search"><span>⌕</span><input id="search" type="search" placeholder="搜索名称或 IP" aria-label="搜索服务器"></div><button type="button" class="btn ghost" id="upgradeAllBtn">↻ 全部升级</button><button type="button" class="btn ghost columns-btn" id="columnsBtn">☷ 列设置</button></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr id="tableHeader">
+                <th data-column="sort" data-sort-heading="sort"><button type="button" class="sort-heading" data-sort="sort">排序 <span aria-hidden="true">↕</span></button></th>
+                <th data-column="server">服务器</th><th data-column="expiresAt">到期时间</th><th data-column="trafficQuota">流量</th><th data-column="note">备注</th>
+                <th data-column="uploadSpeed" data-sort-heading="uploadSpeed"><button type="button" class="sort-heading" data-sort="uploadSpeed">上传速度 <span aria-hidden="true">↕</span></button></th>
+                <th data-column="downloadSpeed" data-sort-heading="downloadSpeed"><button type="button" class="sort-heading" data-sort="downloadSpeed">下载速度 <span aria-hidden="true">↕</span></button></th>
+                <th data-column="todayUpload" data-sort-heading="todayUpload"><button type="button" class="sort-heading" data-sort="todayUpload">今日上传 <span aria-hidden="true">↕</span></button></th>
+                <th data-column="todayDownload" data-sort-heading="todayDownload"><button type="button" class="sort-heading" data-sort="todayDownload">今日下载 <span aria-hidden="true">↕</span></button></th>
+                <th data-column="yesterdayUpload" data-sort-heading="yesterdayUpload"><button type="button" class="sort-heading" data-sort="yesterdayUpload">昨日上传 <span aria-hidden="true">↕</span></button></th>
+                <th data-column="yesterdayDownload" data-sort-heading="yesterdayDownload"><button type="button" class="sort-heading" data-sort="yesterdayDownload">昨日下载 <span aria-hidden="true">↕</span></button></th>
+                <th data-column="dayBeforeYesterdayUpload" data-sort-heading="dayBeforeYesterdayUpload"><button type="button" class="sort-heading" data-sort="dayBeforeYesterdayUpload">前天上传 <span aria-hidden="true">↕</span></button></th>
+                <th data-column="dayBeforeYesterdayDownload" data-sort-heading="dayBeforeYesterdayDownload"><button type="button" class="sort-heading" data-sort="dayBeforeYesterdayDownload">前天下载 <span aria-hidden="true">↕</span></button></th>
+                <th data-column="totalUpload">总上传</th><th data-column="totalDownload">总下载</th><th data-column="uptime">运行时间</th><th data-column="cpu">CPU</th><th data-column="memory">内存</th><th data-column="disk">存储</th><th data-column="actions">操作</th>
+              </tr></thead>
+              <tbody id="nodeRows"></tbody>
+            </table>
+            <div id="emptyState" class="empty" hidden><div>⌁</div><h3 id="emptyTitle">等待节点接入</h3><p id="emptyText">在任意 Linux 服务器运行同一条安装命令，节点会自动出现。</p><button class="btn primary" id="emptyInstallBtn">获取安装命令</button></div>
+          </div>
+        </section>
+      </section>
+    </main>
+	<section id="ddnsPage" class="ddns-page" hidden>
+	  <div class="ddns-heading"><div><span class="ddns-kicker">华为云 DNS</span><h1>定时解析</h1><p>按北京时间执行。选择公网域名下的 A 或 CNAME 记录，任务会自动创建或更新解析。</p></div><div class="ddns-heading-actions"><button type="button" class="btn ghost" id="ddnsBackBtn">← 返回监控</button><button type="button" class="btn primary" id="ddnsAddBtn">＋ 新建任务</button></div></div>
+	  <div class="ddns-layout"><section class="ddns-panel"><div class="ddns-panel-head"><div><h2>华为云密钥</h2><p id="ddnsCredentialStatus">尚未配置</p></div></div><p id="ddnsSecurityWarning" class="ddns-warning" hidden>当前使用 HTTP，密钥传输可能被窃听。请先为面板配置 HTTPS，再填写密钥。</p><form id="ddnsCredentialForm" autocomplete="off"><div class="field"><label for="ddnsAK">Access Key Id</label><input id="ddnsAK" type="password" autocomplete="off" required placeholder="输入 Access Key Id"></div><div class="field"><label for="ddnsSK">Secret Access Key</label><input id="ddnsSK" type="password" autocomplete="off" required placeholder="输入 Secret Access Key"></div><p class="ddns-hint">密钥只保存在面板服务器的数据文件中，页面不会回显。修改时请重新填写两项。</p><button type="submit" class="btn primary">保存密钥</button></form></section>
+	  <section class="ddns-panel ddns-tasks"><div class="ddns-panel-head"><div><h2>解析任务</h2><p>每条任务可立即执行、暂停、编辑或查看日志</p></div></div><div class="ddns-table-wrap"><table class="ddns-table"><thead><tr><th>解析域名</th><th>类型</th><th>目标</th><th>下次执行</th><th>重复</th><th>状态</th><th>操作</th></tr></thead><tbody id="ddnsRows"></tbody></table><p id="ddnsEmpty" class="ddns-empty" hidden>还没有解析任务，点击“新建任务”开始。</p></div></section></div>
+	</section>
+  </div>
+
+  <dialog id="formDialog"><form method="dialog" id="entityForm"><div class="modal-head"><div><span id="modalKicker">服务器</span><h2 id="modalTitle">添加服务器</h2></div><button type="button" data-close-form class="close" aria-label="关闭">×</button></div><div id="formFields"></div><div class="modal-actions"><button type="button" data-close-form class="btn ghost">取消</button><button value="default" class="btn primary" id="saveBtn">保存</button></div></form></dialog>
+  <dialog id="commandDialog"><div class="command-card"><div class="success-mark">↓</div><span>探针命令</span><h2>安装或卸载探针</h2><p>在节点服务器以 root 用户执行。所有服务器共用同一条安装命令。</p><div class="command-block"><label>安装命令</label><div class="command"><code id="installCommand"></code><button id="copyInstallCommand" type="button">复制</button></div></div><div class="command-block"><label>卸载命令</label><div class="command"><code id="uninstallCommand"></code><button id="copyUninstallCommand" type="button">复制</button></div></div><button class="btn primary wide" id="commandDone">完成</button></div></dialog>
+  <dialog id="columnsDialog"><div class="columns-card"><div class="modal-head"><div><span>列表设置</span><h2>显示与排列</h2></div><button type="button" class="close" id="columnsClose" aria-label="关闭">×</button></div><p>勾选需要显示的列，拖动项目调整顺序。设置会自动保存在当前浏览器，刷新不会复原。</p><div class="column-list" id="columnList"></div><div class="modal-actions"><button type="button" class="btn ghost" id="columnsReset">恢复默认</button><button type="button" class="btn primary" id="columnsDone">完成</button></div></div></dialog>
+	<dialog id="ddnsTaskDialog"><form id="ddnsTaskForm"><div class="modal-head"><div><span>华为云 DNS</span><h2 id="ddnsTaskTitle">新建解析任务</h2></div><button type="button" class="close" id="ddnsTaskClose" aria-label="关闭">×</button></div><div class="field"><label for="ddnsDomain">解析域名</label><input id="ddnsDomain" required placeholder="例如 www.example.com" autocomplete="off"></div><div class="two-fields"><div class="field"><label for="ddnsType">记录类型</label><select id="ddnsType"><option value="A">A（IPv4）</option><option value="CNAME">CNAME（域名）</option></select></div><div class="field"><label for="ddnsTarget">目标 IP 或域名</label><input id="ddnsTarget" required placeholder="例如 1.2.3.4" autocomplete="off"></div></div><div class="two-fields"><div class="field"><label for="ddnsNextRun">首次执行时间</label><input id="ddnsNextRun" type="datetime-local" required></div><div class="field"><label for="ddnsRepeat">重复</label><select id="ddnsRepeat"><option value="once">仅一次</option><option value="daily">每天</option><option value="weekly">每周</option><option value="monthly">每月</option></select></div></div><p class="ddns-hint">时间为北京时间（UTC+8）。立即执行不会改变原定计划。</p><div class="modal-actions"><button type="button" class="btn ghost" id="ddnsTaskCancel">取消</button><button type="submit" class="btn primary">保存任务</button></div></form></dialog>
+	<dialog id="ddnsLogDialog"><div class="ddns-log-card"><div class="modal-head"><div><span>执行记录</span><h2 id="ddnsLogTitle">任务日志</h2></div><button type="button" class="close" id="ddnsLogClose" aria-label="关闭">×</button></div><div id="ddnsLogList" class="ddns-log-list"></div></div></dialog>
+  <div id="nodeActionMenu" class="node-action-menu" role="menu" aria-label="服务器操作" hidden>
+    <button type="button" role="menuitem" data-menu-action="speedtest">↗ 测速</button>
+    <button type="button" role="menuitem" data-menu-action="upgrade">↻ 升级探针</button>
+    <button type="button" role="menuitem" data-menu-action="reboot">⏻ 重启服务器</button>
+    <button type="button" role="menuitem" data-menu-action="shutdown" class="danger">⏻ 关机</button>
+    <button type="button" role="menuitem" data-menu-action="reset-traffic">⌫ 清空流量</button>
+    <button type="button" role="menuitem" data-menu-action="delete" class="danger">× 删除服务器</button>
+  </div>
+  <dialog id="speedTestDialog"><div class="speedtest-card"><div class="modal-head"><div><span>节点网络</span><h2 id="speedTestTitle">服务器测速</h2></div><button type="button" class="close" id="speedTestClose" aria-label="关闭测速">×</button></div><p class="speedtest-hint">由节点连接 Cloudflare，测试节点的上传和下载吞吐量，并非本机浏览器测速。结果受路由和测速端点影响，不代表线路最高带宽。</p><section class="speedtest-live" aria-label="当前实时速度"><h3>当前实时速度</h3><div class="speedtest-results"><div><span>↑ 当前上传</span><strong id="speedTestCurrentUpload">—</strong></div><div><span>↓ 当前下载</span><strong id="speedTestCurrentDownload">—</strong></div></div><p id="speedTestLiveHint" class="speedtest-hint">随节点上报自动刷新</p></section><p id="speedTestStatus" role="status" aria-live="polite"></p><h3 class="speedtest-result-title">测速结果</h3><div class="speedtest-results"><div><span>↑ 上传速度</span><strong id="speedTestUpload">—</strong></div><div><span>↓ 下载速度</span><strong id="speedTestDownload">—</strong></div></div><p id="speedTestTime" class="speedtest-hint"></p><p id="speedTestError" class="speedtest-error"></p><p id="speedTestNotice" class="speedtest-hint">每方向最多 8 秒、64 MiB，总计最多约 128 MiB 有效载荷（另有协议开销）；会占用带宽，正常计入节点流量。Cloudflare 会看到节点的出口 IP，仅传输随机测试数据，不上传文件或令牌。点击“开始测速”后直接执行，不再二次确认。</p><div class="modal-actions"><button type="button" class="btn ghost" id="speedTestDone">关闭</button><button type="button" class="btn primary" id="speedTestStart" aria-describedby="speedTestNotice">开始测速</button></div></div></dialog>
+  <div id="toast" role="status"></div>
+  <script src="/app.js"></script>
+	<script src="/ddns.js"></script>
+</body>
+</html>
