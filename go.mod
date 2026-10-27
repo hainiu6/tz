@@ -1,4 +1,4 @@
-module github.com/hainiu3/tz
+module github.com/hainiu6/tz
 
 go 1.22
 

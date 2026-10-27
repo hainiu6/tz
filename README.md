@@ -26,13 +26,13 @@
 使用 root 用户运行：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hainiu3/tz/main/scripts/install-panel.sh | bash
+curl -fsSL https://raw.githubusercontent.com/hainiu6/tz/main/scripts/install-panel.sh | bash
 ```
 
 普通用户可以运行：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hainiu3/tz/main/scripts/install-panel.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/hainiu6/tz/main/scripts/install-panel.sh | sudo bash
 ```
 
 安装完成后会显示访问地址和自动生成的管理令牌。请保存管理令牌，并在服务器防火墙中放行 TCP 876 端口。
@@ -48,7 +48,7 @@ grep '^TZ_ADMIN_TOKEN=' /etc/tz-panel.env
 ### Docker Compose（推荐）
 
 ```bash
-git clone https://github.com/hainiu3/tz.git
+git clone https://github.com/hainiu6/tz.git
 cd tz
 # 请先修改 docker-compose.yml 中的 TZ_ADMIN_TOKEN
 docker compose up -d
@@ -72,7 +72,7 @@ TZ_ADMIN_TOKEN='替换为高强度令牌' TZ_LISTEN=':876' TZ_DATA='./data/data.
 重新执行一键安装命令即可升级。新安装默认使用 **876**；已有安装保留 `/etc/tz-panel.env` 中的端口，避免现有探针断连。显式切换到 876：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hainiu3/tz/main/scripts/install-panel.sh | bash -s -- --port 876
+curl -fsSL https://raw.githubusercontent.com/hainiu6/tz/main/scripts/install-panel.sh | bash -s -- --port 876
 ```
 
 切换前请放行 TCP 876。切换后访问 `http://服务器IP:876`，在每台节点重新执行新面板中显示的安装命令，以更新上报地址；节点 ID 会保留。通过反向代理接入且外部地址不变时，只需更新代理的后端端口。

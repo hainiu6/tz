@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hainiu3/tz/internal/store"
+	"github.com/hainiu6/tz/internal/store"
 )
 
 // Fixed HTTPS endpoints: commands cannot supply URLs, scripts, or shell arguments.

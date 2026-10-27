@@ -20,8 +20,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/hainiu3/tz/internal/assets"
-	"github.com/hainiu3/tz/internal/store"
+	"github.com/hainiu6/tz/internal/assets"
+	"github.com/hainiu6/tz/internal/store"
 )
 
 var version = "dev"

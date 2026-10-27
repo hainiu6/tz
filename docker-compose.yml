@@ -1,7 +1,7 @@
 services:
   panel:
     build: .
-    image: ghcr.io/hainiu3/tz-panel:latest
+    image: ghcr.io/hainiu6/tz-panel:latest
     restart: unless-stopped
     ports:
       - "876:876"

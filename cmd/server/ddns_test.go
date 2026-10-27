@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/dns/v2/model"
-	"github.com/hainiu3/tz/internal/store"
+	"github.com/hainiu6/tz/internal/store"
 )
 
 func TestNormalizeDDNSTask(t *testing.T) {

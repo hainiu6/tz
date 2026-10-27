@@ -29,7 +29,7 @@ case "$(uname -m)" in
   *) echo "暂不支持的架构: $(uname -m)" >&2; exit 1 ;;
 esac
 
-RELEASE_BASE="${TZ_RELEASE_BASE:-https://github.com/hainiu3/tz/releases/latest/download}"
+RELEASE_BASE="${TZ_RELEASE_BASE:-https://github.com/hainiu6/tz/releases/latest/download}"
 TMP_FILE="$(mktemp)"
 trap 'rm -f "$TMP_FILE"' EXIT
 echo "正在下载 TZ Agent (${ARCH})..."

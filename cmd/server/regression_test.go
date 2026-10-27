@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hainiu3/tz/internal/store"
+	"github.com/hainiu6/tz/internal/store"
 )
 
 func TestUnrestrictedAdminTokens(t *testing.T) {

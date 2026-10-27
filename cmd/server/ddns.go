@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hainiu3/tz/internal/store"
+	"github.com/hainiu6/tz/internal/store"
 )
 
 var dnsNamePattern = regexp.MustCompile(`(?i)^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)

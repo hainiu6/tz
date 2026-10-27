@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hainiu3/tz/internal/store"
+	"github.com/hainiu6/tz/internal/store"
 )
 
 func TestMeasureSpeedBoundedUploadAndDownload(t *testing.T) {
