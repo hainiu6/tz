@@ -21,23 +21,25 @@
 
 ## 部署面板
 
-### 一键安装（无需 Docker）
+### 离线安装或升级（无需 Docker、GitHub）
 
-使用 root 用户运行：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/hainiu6/tz/main/scripts/install-panel.sh | bash
-```
-
-普通用户可以运行：
+保存 `tz-offline-linux.tar.gz` 到本地，上传到面板服务器后以 root 解压安装：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hainiu6/tz/main/scripts/install-panel.sh | sudo bash
+mkdir -p /root/tz-offline
+tar -xzf tz-offline-linux.tar.gz -C /root/tz-offline
+bash /root/tz-offline/install-panel.sh
 ```
 
-安装完成后会显示访问地址和自动生成的管理令牌。请保存管理令牌，并在服务器防火墙中放行 TCP 876 端口。
+安装包包含 amd64/arm64 面板、amd64/arm64/armv7 探针、安装脚本及 SHA-256 校验文件。安装时仅使用解压目录里的文件，不访问 GitHub，不需要 Go 或 Docker。已有数据、管理令牌、节点 ID 和监听端口会保留。请在服务器防火墙放行 TCP 876，并备份离线包、`/etc/tz-panel.env` 和 `/var/lib/tz/data.json`。
 
-需要重新查看当前管理令牌时，在面板服务器运行：
+已部署的面板也可作为其他面板的安装源，例如从本机面板下载或克隆当前版本：
+
+```bash
+curl -fsSL http://面板IP:876/install-panel.sh | sudo bash -s -- --url http://面板IP:876
+```
+
+这条命令使用指定面板的 `/downloads/`，不会查询 GitHub；安装更新版本时，请上传新离线包再运行其中的脚本。需要查看管理令牌时，在面板服务器运行：
 
 ```bash
 grep '^TZ_ADMIN_TOKEN=' /etc/tz-panel.env
@@ -58,7 +60,7 @@ docker compose up -d
 
 ### 直接运行
 
-从 Releases 下载对应架构的 `tz-panel-linux-*`，然后运行：
+从保存的离线包中取出对应架构的 `tz-panel-linux-*`，然后运行（探针已内置到面板程序）：
 
 ```bash
 chmod +x tz-panel-linux-amd64
@@ -69,10 +71,10 @@ TZ_ADMIN_TOKEN='替换为高强度令牌' TZ_LISTEN=':876' TZ_DATA='./data/data.
 
 ## 升级面板与修改端口
 
-重新执行一键安装命令即可升级。新安装默认使用 **876**；已有安装保留 `/etc/tz-panel.env` 中的端口，避免现有探针断连。显式切换到 876：
+上传新离线包，解压后执行其中的安装脚本即可升级。新安装默认使用 **876**；已有安装保留 `/etc/tz-panel.env` 中的端口，避免现有探针断连。显式切换到 876：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hainiu6/tz/main/scripts/install-panel.sh | bash -s -- --port 876
+bash /root/tz-offline/install-panel.sh --port 876
 ```
 
 切换前请放行 TCP 876。切换后访问 `http://服务器IP:876`，在每台节点重新执行新面板中显示的安装命令，以更新上报地址；节点 ID 会保留。通过反向代理接入且外部地址不变时，只需更新代理的后端端口。
@@ -89,7 +91,7 @@ curl -fsSL https://raw.githubusercontent.com/hainiu6/tz/main/scripts/install-pan
 
 ## 安装探针
 
-进入面板，点击“安装探针”，复制弹窗中的通用安装命令，在所有目标 Linux 服务器以 root 用户执行即可。每台服务器会生成自己的节点 ID，首次上报后自动出现在列表中，无需提前添加服务器。
+进入面板，点击“安装探针”，复制弹窗中的通用安装命令，在所有目标 Linux 服务器以 root 用户执行即可。每台服务器会生成自己的节点 ID，首次上报后自动出现在列表中，无需提前添加服务器。v0.25.0 起安装脚本和探针安装包均由面板直接提供，节点不再访问 GitHub。面板程序内置三种 Linux 架构探针，下载地址为 `/downloads/tz-agent-linux-amd64`、`/downloads/tz-agent-linux-arm64`、`/downloads/tz-agent-linux-armv7`；脚本会先验证 `/downloads/checksums.txt`，校验失败不替换已有探针。
 
 ## 华为云 DDNS 定时解析
 
@@ -115,7 +117,7 @@ curl -fsSL https://raw.githubusercontent.com/hainiu6/tz/main/scripts/install-pan
 
 「清空流量」需确认后执行，只清空该节点的今日、昨日、前天及累计上传/下载，不影响其他节点、分组、备注和在线状态。结果持久保存，面板重启后不会恢复。节点下一次上报先建立新基线（离线节点重新上线时同样如此），之后才统计新增流量；清空后累计流量表示从新基线开始的流量，节点重启不会清掉这个累计值。
 
-点击服务器行末尾的三点菜单，选择“升级探针”。在线探针会在下一次心跳收到升级指令，从最新 GitHub Release 下载新版本并自动重启。
+点击服务器行末尾的三点菜单，选择“升级探针”。在线探针会在下一次心跳收到升级指令，从当前面板的 `/downloads/` 下载与该面板配套的探针，校验 SHA-256 后自动重启，不访问 GitHub。要发布新探针，先升级面板，再点击「全部升级」。
 
 列表顶部的“全部升级”会给面板中的所有节点排队升级，包括离线节点；离线节点重新上线后执行。
 
@@ -129,7 +131,7 @@ curl -fsSL https://raw.githubusercontent.com/hainiu6/tz/main/scripts/install-pan
 
 也可以直接点击服务器行的删除按钮，确认后移除面板记录，同时将卸载指令持久保存。在线探针在下一次上报时收到指令；离线探针在恢复连接后执行。指令未执行前不会重新注册到列表。
 
-v0.7.0 起探针支持远程卸载：清理 `tz-agent` 服务、`/usr/local/bin/tz-agent` 和 `/etc/tz-agent.env`。旧版探针先接收升级指令，升级成功后再卸载，因此需要节点能够下载 GitHub Release。提示“已排队”不代表机器已完成卸载。卸载后重新安装会生成新的节点 ID。
+v0.7.0 起探针支持远程卸载：清理 `tz-agent` 服务、`/usr/local/bin/tz-agent` 和 `/etc/tz-agent.env`。旧版探针先接收升级指令，升级成功后再卸载，因此需要节点能够访问当前面板的 `/downloads/`。提示“已排队”不代表机器已完成卸载。卸载后重新安装会生成新的节点 ID。
 
 ## 配置
 
@@ -138,12 +140,14 @@ v0.7.0 起探针支持远程卸载：清理 `tz-agent` 服务、`/usr/local/bin/
 | `TZ_ADMIN_TOKEN` | 面板管理令牌 | 未设置时启动日志生成临时令牌 |
 | `TZ_LISTEN` | 面板监听地址 | `:876` |
 | `TZ_DATA` | 数据文件路径 | `/var/lib/tz/data.json` |
+| `TZ_DOWNLOAD_DIR` | 面板安装包文件目录，供同架构或跨架构面板克隆使用；探针使用内置文件 | `TZ_DATA` 同目录下的 `downloads` |
 | `TZ_PANEL_URL` | 探针连接的面板地址 | 必填 |
 | `TZ_AGENT_TOKEN` | 每台服务器的独立探针令牌 | 必填 |
 
 ## 开发
 
 ```bash
+VERSION=v0.25.0 sh scripts/build-release.sh
 go test ./...
 go run ./cmd/server
 ```
@@ -151,3 +155,5 @@ go run ./cmd/server
 ## License
 
 MIT
+
+构建脚本先生成三种探针，再将它们内置到两种架构的面板中，输出 `dist/tz-offline-linux.tar.gz`。开发和构建需要正常获取 Go 依赖；部署后的探针安装、升级和监控不需要 GitHub。DDNS 和测速仍会访问其各自服务。Docker 构建也会内置探针；如需对外提供面板程序下载，可挂载完整离线包文件到 `TZ_DOWNLOAD_DIR`。

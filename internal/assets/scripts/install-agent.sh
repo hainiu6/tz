@@ -21,6 +21,9 @@ if [[ $EUID -ne 0 ]]; then
   echo "请使用 root 用户运行，或在命令前加 sudo" >&2
   exit 1
 fi
+for tool in curl sha256sum systemctl install; do
+  command -v "$tool" >/dev/null || { echo "缺少必要命令: $tool" >&2; exit 1; }
+done
 
 case "$(uname -m)" in
   x86_64|amd64) ARCH="amd64" ;;
@@ -29,11 +32,19 @@ case "$(uname -m)" in
   *) echo "暂不支持的架构: $(uname -m)" >&2; exit 1 ;;
 esac
 
-RELEASE_BASE="${TZ_RELEASE_BASE:-https://github.com/hainiu6/tz/releases/latest/download}"
-TMP_FILE="$(mktemp)"
-trap 'rm -f "$TMP_FILE"' EXIT
+RELEASE_BASE="${TZ_RELEASE_BASE:-${PANEL_URL%/}/downloads}"
+TMP_DIR="$(mktemp -d)"
+TMP_FILE="$TMP_DIR/agent"
+trap 'rm -rf "$TMP_DIR"' EXIT
 echo "正在下载 TZ Agent (${ARCH})..."
-curl -fL --retry 3 "${RELEASE_BASE}/tz-agent-linux-${ARCH}" -o "$TMP_FILE"
+ASSET="tz-agent-linux-${ARCH}"
+curl -fL --retry 3 --connect-timeout 15 --max-time 180 "${RELEASE_BASE%/}/$ASSET" -o "$TMP_FILE"
+curl -fsSL --retry 3 --connect-timeout 15 --max-time 30 "${RELEASE_BASE%/}/checksums.txt" -o "$TMP_DIR/checksums.txt"
+EXPECTED="$(awk -v asset="$ASSET" '$2 == asset {print $1}' "$TMP_DIR/checksums.txt")"
+if ! [[ "$EXPECTED" =~ ^[a-fA-F0-9]{64}$ ]]; then
+  echo "面板未提供有效的探针校验值，请先升级面板。" >&2; exit 1
+fi
+printf '%s  %s\n' "$EXPECTED" "$TMP_FILE" | sha256sum -c -
 chmod 0755 "$TMP_FILE"
 install -m 0755 "$TMP_FILE" /usr/local/bin/.tz-agent.new
 mv -f /usr/local/bin/.tz-agent.new /usr/local/bin/tz-agent

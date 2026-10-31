@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/hainiu6/tz/internal/assets"
+	"github.com/hainiu6/tz/internal/downloads"
 	"github.com/hainiu6/tz/internal/store"
 )
 
@@ -64,6 +66,10 @@ func main() {
 	mux.HandleFunc("/api/", app.api)
 	mux.HandleFunc("/install.sh", installScript)
 	mux.HandleFunc("/uninstall.sh", uninstallScript)
+	mux.HandleFunc("/install-panel.sh", func(w http.ResponseWriter, r *http.Request) {
+		serveScript(w, "scripts/install-panel.sh")
+	})
+	mux.Handle("/downloads/", downloadHandler(downloads.Files, env("TZ_DOWNLOAD_DIR", filepath.Join(filepath.Dir(dataFile), "downloads"))))
 	web, _ := fs.Sub(assets.Files, "web")
 	mux.Handle("/", http.FileServer(http.FS(web)))
 	h := securityHeaders(requestLog(mux))

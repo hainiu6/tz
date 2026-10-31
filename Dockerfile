@@ -2,6 +2,7 @@ FROM golang:1.22-alpine AS build
 WORKDIR /src
 COPY . .
 ARG VERSION=dev
+RUN VERSION=${VERSION} sh scripts/build-agents.sh
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /tz-server ./cmd/server
 
 FROM alpine:3.20
